@@ -1,64 +1,112 @@
 <p align="center">
-  <img src=".claude-plugin/icon.png" width="128" alt="Fill Me In">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.svg">
+    <img src="assets/logo.svg" width="220" alt="Fill Me In: someone peeking in, having missed everything">
+  </picture>
 </p>
 
 <h1 align="center">Fill Me In</h1>
 
-<p align="center"><b>Agent answers you can actually follow — even if you didn't watch the agent work.</b></p>
+<p align="center">
+  <em>You walked in halfway through. It catches you up.</em>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/github/stars/quiqqe/fill-me-in?style=flat-square&color=111111&label=stars" alt="Stars">
+  <img src="https://img.shields.io/badge/claude%20code-plugin-111111?style=flat-square" alt="Claude Code plugin">
+  <img src="https://img.shields.io/badge/version-0.1.0-111111?style=flat-square" alt="Version 0.1.0">
+  <img src="https://img.shields.io/badge/license-MIT-111111?style=flat-square" alt="MIT license">
+</p>
+
+<p align="center">
+  <strong>Situation first &middot; what, why, what to do &middot; depth that follows the conversation &middot; outranks "be brief" plugins</strong>
+</p>
 
 ---
 
-## The problem
+You know the feeling. You hand the agent a task, look away for ten minutes, come back, and read:
 
-While working, the agent holds the whole process in its head: which files it read, which
-hypotheses it dropped, what it named things along the way. Then it writes the final answer as if
-you had been sitting next to it. You know every word, yet the point slips away — the connections
-between those words live in the part of the work you never saw.
+> Dropped `set $backend`, moved to an upstream with `zone` and `resolve`, `valid=1s`. Recreating app no longer needs a reload.
 
-## What it does
+Every word is familiar. None of it means anything. The agent was in the room the whole time — it read the files, dropped two hypotheses, named things along the way — and it writes as if you were there too.
 
-**An always-on writing rule.** A `SessionStart` hook (also after `/clear` and context compaction)
-gives the agent a rule for every answer:
+Fill Me In makes the agent write for the person who just walked in.
 
-- situation first, then the conclusion;
-- every conclusion answers *what*, *why*, and *what it means for you / what to do*;
-- no references to things only the agent saw ("that bug", "the second hypothesis") without
-  explaining them;
-- abstractions come with a concrete example.
+## Before / after
 
-**Adaptive depth.** The level of explanation is chosen per topic, from signals in the dialogue
-rather than the agent's sense of "this is obvious":
+Same fix, with Fill Me In:
 
-- you use a topic's terms correctly or correct the agent → no hand-holding;
-- you ask what a term means or say "I don't get it" → the agent explains the mechanism behind
-  its conclusion and keeps that level for the topic;
-- no signals → it explains, because an extra sentence is cheaper than an answer you can't follow.
+> **Gist:** nginx now notices on its own that the app container was recreated, so it no longer needs a restart.
+>
+> **How it works.** nginx reaches the app container by the name `app`, and Docker's DNS turns that name into an IP. Recreate the container and the IP can change; an nginx that remembered the old one sends requests into the void. The new `upstream` block with `resolve` makes nginx re-ask DNS every second (`valid=1s`).
+>
+> ```
+> request → nginx → upstream backend → DNS: "app = ?" (every 1 s) → app container
+> ```
+>
+> **Example.** A deploy recreates app, its IP goes from .5 to .7, and within a second nginx sends traffic to .7. Before, you would restart nginx by hand.
 
-**`/fill-me-in` for when an answer still lands badly.** The agent finds the invisible context its
-answer relied on, re-checks the key facts against the source, and re-explains: the gist in one
-sentence, how the mechanism works, a step-by-step example, and what follows from it.
-`/fill-me-in <something>` explains only that part.
+Not longer for the sake of it. Longer by exactly the context you missed.
 
-## Works alongside "be brief" plugins
+## How it works
 
-If you run plugins that compress output (ponytail, caveman and the like), Fill Me In wins when it
-comes to explanations: let them trim code and repetition, not context and reasons. The full rule
-loads at session start, and a one-line reminder is added to every prompt so it isn't drowned out
-by other instructions. A direct request in your message ("code only", "one word") is still
-honored.
+Two parts, one plugin.
+
+**An always-on rule.** A `SessionStart` hook (also after `/clear` and context compaction) loads it, and a one-line reminder rides along with every prompt so other instructions don't drown it out:
+
+```
+1. Situation first      → what was going on, what the agent found
+2. Then the conclusion  → what, why, what it means for you
+3. No private context   → "that bug", "the second hypothesis" get explained or cut
+4. Concrete over vague  → "request X returns Y because Z"
+5. Depth follows you    → per topic, from what you say, not what feels obvious to the agent
+```
+
+Depth is the part agents usually get wrong, so it is read from the dialogue instead of guessed:
+
+| You… | The agent… |
+|---|---|
+| use the topic's terms, correct it on substance | skips the basics |
+| ask what a term means, say "I don't get it" | explains the mechanism and stays at that level for the topic |
+| give no signal | explains — an extra sentence is cheaper than an answer you can't follow |
+
+**`/fill-me-in` for when an answer still lands badly.** The agent finds the invisible context its answer leaned on, re-checks key facts against the source instead of memory, and re-explains: the gist in one line, the mechanism, a step-by-step example, what follows. `/fill-me-in <part>` unpacks just that part.
+
+## Plays well with "be brief"
+
+Running [ponytail](https://github.com/DietrichGebert/ponytail), [caveman](https://github.com/JuliusBrussee/caveman) or your own "max three lines" rule? Keep them. Fill Me In tells the agent to let them cut code, repetition and pleasantries — never context, reasons or the mechanism. You installed it to understand answers, so on explanations it wins. A direct request in your message ("code only") still wins over both.
 
 ## Install
+
+### Claude Code
 
 ```
 /plugin marketplace add quiqqe/fill-me-in
 /plugin install fill-me-in@fill-me-in
 ```
 
-Just the `/fill-me-in` skill, without the always-on rule (works with other agents too):
+Starts working from the next session.
 
-```
+### Just the skill, any agent
+
+`/fill-me-in` alone, without the always-on rule — for agents that support `SKILL.md`:
+
+```bash
 npx skills add quiqqe/fill-me-in
 ```
+
+### Uninstall
+
+```
+/plugin uninstall fill-me-in@fill-me-in
+```
+
+<details>
+<summary><strong>Why a plugin and not just a skill?</strong></summary>
+
+A skill loads only when the agent decides the task matches it. "Write clearly" applies to every answer, so as a skill it would misfire exactly on the quick replies where context goes missing. A plugin can load the rule on every session start through a hook, and still ship `/fill-me-in` as the fallback.
+
+</details>
 
 ## License
 
