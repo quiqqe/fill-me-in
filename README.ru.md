@@ -1,8 +1,8 @@
 <p align="center">
-
-![Fill Me In: человек выглядывает из-за двери, всё пропустив](assets/logo.svg#gh-light-mode-only)
-![Fill Me In: человек выглядывает из-за двери, всё пропустив](assets/logo-dark.svg#gh-dark-mode-only)
-
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.svg">
+    <img src="assets/logo.svg" width="220" alt="Fill Me In: человек выглядывает из-за двери, всё пропустив">
+  </picture>
 </p>
 
 <h1 align="center">Fill Me In</h1>

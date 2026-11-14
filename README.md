@@ -1,8 +1,8 @@
 <p align="center">
-
-![Fill Me In: someone peeking in, having missed everything](assets/logo.svg#gh-light-mode-only)
-![Fill Me In: someone peeking in, having missed everything](assets/logo-dark.svg#gh-dark-mode-only)
-
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.svg">
+    <img src="assets/logo.svg" width="220" alt="Fill Me In: someone peeking in, having missed everything">
+  </picture>
 </p>
 
 <h1 align="center">Fill Me In</h1>
