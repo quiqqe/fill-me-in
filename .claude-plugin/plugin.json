@@ -1,0 +1,11 @@
+{
+  "name": "fill-me-in",
+  "version": "0.1.0",
+  "description": "Ответы, понятные без контекста: правило на каждый ответ и команда /fill-me-in, чтобы разобрать непонятный ответ.",
+  "author": {
+    "name": "quiqqe",
+    "url": "https://github.com/quiqqe"
+  },
+  "license": "MIT",
+  "keywords": ["explain", "clarity", "context", "communication"]
+}
