@@ -58,9 +58,9 @@ a single flipped vote moved a case by 0.5. Both were fixed for run 2.
   session — is simulated by giving the agent its own working notes in the prompt.
 - The baseline model already explains well on three cases (ceiling at 1.00), so the gain shows only
   where the default answer is terse.
-- Replies with the plugin are ~50% longer overall. The graders reward clarity, not brevity, so this
+- Replies with the plugin are ~40% longer overall. The graders reward clarity, not brevity, so this
   table does not tell you whether the extra length is worth it to you.
-- `expert-no-overexplain` still fails in 3 of 4 runs with the plugin (and in all runs without):
+- `expert-no-overexplain` still fails in 5 of 12 runs with the plugin (8 of 12 without):
   the agent keeps adding caveats the expert did not ask for.
 
 Reproduce: `claude plugin eval . --judge-model sonnet`
