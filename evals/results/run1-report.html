@@ -1,0 +1,1620 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Eval report — fill-me-in v0.1.0</title>
+</head>
+<body>
+<style>
+:root{--plane:#f9f9f7;--surface:#fcfcfb;--ink:#0b0b0b;--ink-2:#52514e;--ink-3:#6b6a64;--hairline:rgba(11,11,11,.10);--grid:#e1e0d9;--inset:rgba(11,11,11,.04);--accent:#2a78d6;--base-fill:#6b6a64;--delta-good:#006300;--good:#067d06;--warning:#8a6100;--critical:#d03b3b;
+  color-scheme:light dark;
+}
+@media (prefers-color-scheme:dark){:root{--plane:#0d0d0d;--surface:#1a1a19;--ink:#ffffff;--ink-2:#c3c2b7;--ink-3:#898781;--hairline:rgba(255,255,255,.10);--grid:#2c2c2a;--inset:rgba(255,255,255,.05);--accent:#3987e5;--base-fill:#898781;--delta-good:#0ca30c;--good:#0ca30c;--warning:#fab219;--critical:#e06c6c;color-scheme:dark}}
+:root[data-theme="dark"]{--plane:#0d0d0d;--surface:#1a1a19;--ink:#ffffff;--ink-2:#c3c2b7;--ink-3:#898781;--hairline:rgba(255,255,255,.10);--grid:#2c2c2a;--inset:rgba(255,255,255,.05);--accent:#3987e5;--base-fill:#898781;--delta-good:#0ca30c;--good:#0ca30c;--warning:#fab219;--critical:#e06c6c;color-scheme:dark}
+:root[data-theme="light"]{--plane:#f9f9f7;--surface:#fcfcfb;--ink:#0b0b0b;--ink-2:#52514e;--ink-3:#6b6a64;--hairline:rgba(11,11,11,.10);--grid:#e1e0d9;--inset:rgba(11,11,11,.04);--accent:#2a78d6;--base-fill:#6b6a64;--delta-good:#006300;--good:#067d06;--warning:#8a6100;--critical:#d03b3b;color-scheme:light}
+*{box-sizing:border-box}
+body{margin:0;background:var(--plane);color:var(--ink);
+  font:14px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif;
+  -webkit-text-size-adjust:100%}
+.wrap{max-width:880px;margin:0 auto;padding:40px 24px 64px;display:flex;flex-direction:column;gap:20px}
+.eyebrow{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+header h1{margin:2px 0 0;font-size:24px;font-weight:600;line-height:1.25;text-wrap:balance}
+.meta{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:8px;color:var(--ink-2);font-size:13px}
+.meta .num{font-variant-numeric:tabular-nums lining-nums}
+.banner{display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:8px;
+  border:1px solid var(--hairline);background:var(--surface);font-size:13px}
+.banner .chip-warn{color:var(--warning);font-weight:600}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.tile{background:var(--surface);border:1px solid var(--hairline);border-radius:10px;padding:14px 16px;
+  display:flex;flex-direction:column;gap:4px}
+.tile .label{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)}
+.tile .value{font-size:26px;font-weight:600;font-variant-numeric:tabular-nums lining-nums;line-height:1.1}
+.tile.hero .value{font-family:Georgia,"Times New Roman",serif;font-weight:400;font-size:48px}
+.tile .sub{font-size:12px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.tile .value.delta-pos{color:var(--delta-good)}
+.tile .value.delta-neg{color:var(--critical)}
+.toolbar{display:flex;gap:8px;justify-content:flex-end}
+.toolbar button{font:12px system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink-2);
+  background:var(--surface);border:1px solid var(--hairline);border-radius:6px;padding:4px 10px;cursor:pointer}
+.toolbar button:hover{color:var(--ink)}
+.toolbar button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.case{background:var(--surface);border:1px solid var(--hairline);border-radius:10px;padding:18px 20px;
+  display:flex;flex-direction:column;gap:10px}
+.case-regressed{border-left:3px solid var(--critical)}
+.verdict{margin:6px 0 0;font-size:15px}
+.verdict .delta{font-size:15px}
+.flag{font-size:11px;font-weight:600;color:var(--warning);white-space:nowrap}
+.star{color:var(--warning);font-size:.45em;vertical-align:super;line-height:0;cursor:help}
+.legend summary{cursor:pointer;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-2)}
+.legend-list{margin:8px 0 0;padding-left:20px;display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--ink-2)}
+.case-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.case-head h2{margin:0;font-size:16px;font-weight:600}
+.case-head .spacer{flex:1}
+.case-score{font-size:15px;font-weight:600}
+.mono{font:12px "SF Mono",ui-monospace,Menlo,Consolas,monospace}
+.num{font-variant-numeric:tabular-nums lining-nums}
+.muted{color:var(--ink-3);font-size:12px}
+.meter{display:inline-block;position:relative;width:120px;height:6px;border-radius:4px;background:var(--grid);
+  vertical-align:middle}
+.meter>span{display:block;height:100%;border-radius:4px;max-width:100%}
+.meter .tick{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--ink-3);border-radius:1px}
+.m-accent>span{background:var(--accent)}
+.m-base>span{background:var(--base-fill)}
+.delta{font-size:12px;font-weight:600;font-variant-numeric:tabular-nums}
+.delta-pos{color:var(--delta-good)}
+.delta-neg{color:var(--critical)}
+.delta-zero{color:var(--ink-3)}
+details.section{border-top:1px solid var(--grid);padding-top:10px}
+details.section>summary{cursor:pointer;font-size:12px;font-weight:600;letter-spacing:.04em;
+  text-transform:uppercase;color:var(--ink-2);list-style-position:outside;margin-left:2px}
+details.section>summary:hover{color:var(--ink)}
+details.section[open]>summary{margin-bottom:8px}
+.md{display:flex;flex-direction:column;gap:8px;background:var(--inset);border-radius:8px;
+  padding:12px 14px;overflow-wrap:break-word}
+.md>:first-child{margin-top:0}
+.md h1,.md h2,.md h3,.md h4,.md h5,.md h6{margin:4px 0 0;font-size:1em;font-weight:600;line-height:1.3}
+.md p,.md ul,.md ol,.md blockquote,.md table,.md pre,.md hr{margin:0}
+.md ul,.md ol{display:flex;flex-direction:column;gap:4px;padding-left:20px}
+.md blockquote{border-left:2px solid var(--hairline);padding-left:10px;color:var(--ink-2)}
+.md :not(pre)>code{background:var(--inset);padding:1px 4px;border-radius:4px;
+  font:.92em "SF Mono",ui-monospace,Menlo,Consolas,monospace}
+.md pre{background:var(--inset);border:1px solid var(--hairline);padding:10px 12px;border-radius:6px;
+  overflow-x:auto;font:12px/1.5 "SF Mono",ui-monospace,Menlo,Consolas,monospace}
+.md pre code{background:none;padding:0;font:inherit}
+.md table{width:100%;border-collapse:collapse}
+.md th,.md td{padding:5px 8px;text-align:left;vertical-align:top;border-bottom:1px solid var(--grid)}
+.md th{font-weight:600;color:var(--ink-2)}
+.md a{color:var(--accent);text-decoration:none}
+.md a:hover{text-decoration:underline}
+.grader-def{display:flex;flex-direction:column;gap:6px;padding:8px 0}
+.grader-def+.grader-def{border-top:1px solid var(--grid)}
+.grader-def-head{display:flex;align-items:baseline;gap:8px}
+.grader-name{font:13px "SF Mono",ui-monospace,Menlo,Consolas,monospace;font-weight:600}
+.badge{font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-2);
+  border:1px solid var(--hairline);border-radius:999px;padding:1px 8px}
+.config{display:flex;flex-direction:column;gap:2px;background:var(--inset);border-radius:8px;padding:10px 14px}
+.config code{font:12px "SF Mono",ui-monospace,Menlo,Consolas,monospace;overflow-wrap:anywhere}
+.arm{display:flex;flex-direction:column;gap:8px;padding:6px 0}
+.arm+.arm{border-top:1px dashed var(--grid);margin-top:4px;padding-top:12px}
+.arm-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.arm-label{font-size:13px;font-weight:600}
+.run{border:1px solid var(--grid);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.run-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.run-title{font-size:12px;font-weight:600;color:var(--ink-2)}
+.run-error .explanation{color:var(--ink-2)}
+.note{font-size:12px;color:var(--ink-2)}
+.graders{display:flex;flex-direction:column;gap:4px}
+details.grader{border-radius:6px}
+details.grader>summary{cursor:pointer;display:flex;align-items:baseline;gap:8px;padding:3px 4px;
+  border-radius:6px;list-style:none}
+details.grader>summary::-webkit-details-marker{display:none}
+details.grader>summary::before{content:'▸';font-size:10px;color:var(--ink-3);flex:none;
+  transition:transform .12s ease}
+details.grader[open]>summary::before{transform:rotate(90deg)}
+details.grader>summary:hover{background:var(--inset)}
+details.grader>summary:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.grader-body{padding:6px 8px 8px 24px;display:flex;flex-direction:column;gap:6px}
+.chip{font-size:11px;font-weight:600;border-radius:999px;padding:1px 8px;white-space:nowrap}
+.chip-pass{color:var(--good);border:1px solid currentColor}
+.chip-fail{color:var(--critical);border:1px solid currentColor}
+.chip.chip-warn{color:var(--warning);border:1px solid currentColor}
+.explanation{margin:0;font-size:13px;color:var(--ink-2);white-space:pre-wrap;overflow-wrap:break-word}
+.kv{display:flex;gap:8px;font-size:12px;color:var(--ink-3)}
+.votes{font-variant-numeric:tabular-nums;letter-spacing:.1em}
+pre.evidence{margin:0;background:var(--inset);border:1px solid var(--hairline);border-radius:6px;
+  padding:8px 10px;overflow-x:auto;max-height:320px;
+  font:12px/1.5 "SF Mono",ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;overflow-wrap:break-word}
+footer{color:var(--ink-3);font-size:12px;text-align:center;padding-top:8px}
+@media (prefers-reduced-motion:no-preference){
+  details.grader>summary,.toolbar button{transition:background .12s ease,color .12s ease}
+}
+@media (prefers-reduced-motion:reduce){
+  details.grader>summary::before{transition:none}
+}
+@media print{
+  :root,:root[data-theme="dark"],:root[data-theme="light"]{--plane:#f9f9f7;--surface:#fcfcfb;--ink:#0b0b0b;--ink-2:#52514e;--ink-3:#6b6a64;--hairline:rgba(11,11,11,.10);--grid:#e1e0d9;--inset:rgba(11,11,11,.04);--accent:#2a78d6;--base-fill:#6b6a64;--delta-good:#006300;--good:#067d06;--warning:#8a6100;--critical:#d03b3b;color-scheme:light}
+  body{background:#fff}
+  .toolbar{display:none}
+  .case,.run,.grader-def{break-inside:avoid}
+  pre.evidence{max-height:none}
+}
+</style>
+<div class="wrap">
+<header>
+<div class="eyebrow">Plugin eval report</div>
+<h1>fill-me-in v0.1.0</h1>
+<p class="verdict">Plugin effect: <span class="delta delta-zero">· 0.0 pts</span> vs baseline — improved 2 · flat 3 · regressed 1 of 6 cases.</p>
+<div class="meta">
+<span class="mono">.</span>
+<span>Claude Code v2.1.325</span>
+<span class="num">2026-11-14 11:28 UTC</span>
+<span class="num">1m 58s</span>
+<span class="num">$1.61</span>
+<span class="num">24 runs</span>
+<span class="num">4 in flight</span>
+
+
+<span>judge default</span>
+<span class="num">threshold 0%</span>
+
+</div>
+</header>
+
+<section class="tiles">
+<div class="tile hero"><span class="label">Suite score · with plugin</span><span class="value">61.1%</span><span class="sub">mean of per-case scores</span></div>
+<div class="tile"><span class="label">Ablation Δ</span><span class="value num delta-zero">0.0</span><span class="sub">score points vs baseline, 6 of 6 cases</span></div>
+<div class="tile"><span class="label">Baseline score</span><span class="value num">61.1%</span><span class="sub">without the plugin</span></div>
+<div class="tile"><span class="label">Cases</span><span class="value num">6</span><span class="sub">6 of 6 ≥ 0% threshold</span></div>
+<div class="tile"><span class="label">Perfect runs</span><span class="value num">50%</span><span class="sub">runs where every grader passed</span></div>
+</section>
+<details class="section legend">
+<summary>How to read this report</summary>
+<ul class="legend-list">
+<li>A run's score is the weighted fraction of its graders that passed; a "perfect" run passed every grader.</li>
+<li>A case's score is the mean of its runs; a case passes when its score is at or above the 0% threshold (the tick on each case bar).</li>
+<li>The suite score is the mean of the per-case scores.</li>
+<li>Judge votes are independent samples of the LLM judge; the majority decides pass or fail.</li>
+<li>"With plugin" and "Baseline" runs are identical except for the plugin being loaded; Δ is the with-plugin score minus the baseline score.</li>
+
+</ul>
+</details>
+<div class="toolbar"><button type="button" data-act="expand">Expand all</button><button type="button" data-act="collapse">Collapse all</button></div>
+<article class="case case-regressed" id="case-1">
+<div class="case-head">
+<h2>expert-no-overexplain</h2>
+<span class="muted mono">evals/expert-no-overexplain</span>
+<span class="spacer"></span>
+
+<span class="delta delta-neg">↓ -100.0 pts</span>
+<span class="muted">with plugin</span>
+<span class="meter m-accent" aria-hidden="true"><span style="width:0.0%"></span><i class="tick" style="left:0.0%"></i></span>
+<span class="num case-score">0%</span>
+</div>
+
+<details class="section" open>
+<summary>Results</summary>
+<section class="arm">
+<div class="arm-head">
+<span class="arm-label">With plugin</span>
+<span class="meter m-accent" aria-hidden="true"><span style="width:0.0%"></span></span>
+<span class="num">0%</span>
+<span class="muted num">0% of runs perfect</span>
+</div>
+<div class="run">
+<div class="run-head">
+<span class="run-title">Run 1</span>
+<span class="meter m-accent" aria-hidden="true"><span style="width:0.0%"></span></span>
+<span class="num">0%</span>
+<span class="muted num">1 turns · $0.08 · 11:28:56 UTC</span>
+</div>
+
+<div class="graders"><details class="grader" open>
+<summary><span class="chip chip-fail">✗ fail</span> <span class="grader-name">clear</span> <span class="muted">×2</span> </summary>
+<div class="grader-body">
+<p class="explanation">judge votes: FAIL FAIL FAIL</p>
+<div class="kv"><span>Judge votes</span><span class="votes">✗ ✗ ✗</span></div><div class="kv"><span>Evidence (what the judge was shown; for an image, a description of what was sent)</span></div><pre class="evidence">Yes, that&apos;s the cause. The visibility timeout is 30s, but SendWelcomeJob&apos;s p95 runtime is 70s. So for a large share of jobs, the message becomes visible again while the first worker is still processing it. A second worker picks it up, and both send the welcome email.
+
+That conclusion comes from comparing those two numbers in a quick check. I didn&apos;t trace individual duplicate sends back to redeliveries. If you want hard proof, look at `ApproximateReceiveCount` on the messages behind the duplicate emails. If it&apos;s above 1, and the second receive arrives about 30s after the first, that settles it.
+
+**What I changed:**
+
+1. **Visibility timeout: 30s → 120s.** That leaves about 50s of headroom over p95, so jobs of typical length no longer get redelivered. It doesn&apos;t cover the tail: any job slower than 120s will still be redelivered. I haven&apos;t looked at p99 or max. If the tail goes past 120s, there are two fixes. You can have the worker extend visibility with `ChangeMessageVisibility` while it runs. Or you can set the timeout from the observed max rather than from p95.
+
+2. **Idempotency key: `user_id + template`.** Before sending, the job checks whether that pair has already been sent and skips it if so. This is the real safety net, since SQS standard queues are at-least-once and can deliver duplicates even with a correct timeout. Two things are worth checking against your design:
+   - **Scope:** with this key, a user can only ever receive a given template once. That suits a welcome email. If anything is meant to resend it on purpose, like a &quot;resend welcome&quot; action, the key needs another part, such as a send ID.
+   - **Atomicity:** the key only prevents duplicates if it&apos;s claimed atomically before the send, with something like a conditional insert or unique constraint. A check-then-send with a gap in between still lets two concurrent workers both pass the check. Please confirm the storage behind it gives that guarantee.
+
+Next steps: check the receive counts to confirm, and pull p99/max for SendWelcomeJob to decide whether 120s is enough or whether the worker should extend visibility while it runs.</pre>
+</div>
+</details>
+<details class="grader" open>
+<summary><span class="chip chip-fail">✗ fail</span> <span class="grader-name">not_overexplained</span>  </summary>
+<div class="grader-body">
+<p class="explanation">judge votes: FAIL PASS FAIL</p>
+<div class="kv"><span>Judge votes</span><span class="votes">✗ ✓ ✗</span></div><div class="kv"><span>Evidence (what the judge was shown; for an image, a description of what was sent)</span></div><pre class="evidence">Yes, that&apos;s the cause. The visibility timeout is 30s, but SendWelcomeJob&apos;s p95 runtime is 70s. So for a large share of jobs, the message becomes visible again while the first worker is still processing it. A second worker picks it up, and both send the welcome email.
+
+That conclusion comes from comparing those two numbers in a quick check. I didn&apos;t trace individual duplicate sends back to redeliveries. If you want hard proof, look at `ApproximateReceiveCount` on the messages behind the duplicate emails. If it&apos;s above 1, and the second receive arrives about 30s after the first, that settles it.
+
+**What I changed:**
+
+1. **Visibility timeout: 30s → 120s.** That leaves about 50s of headroom over p95, so jobs of typical length no longer get redelivered. It doesn&apos;t cover the tail: any job slower than 120s will still be redelivered. I haven&apos;t looked at p99 or max. If the tail goes past 120s, there are two fixes. You can have the worker extend visibility with `ChangeMessageVisibility` while it runs. Or you can set the timeout from the observed max rather than from p95.
+
+2. **Idempotency key: `user_id + template`.** Before sending, the job checks whether that pair has already been sent and skips it if so. This is the real safety net, since SQS standard queues are at-least-once and can deliver duplicates even with a correct timeout. Two things are worth checking against your design:
+   - **Scope:** with this key, a user can only ever receive a given template once. That suits a welcome email. If anything is meant to resend it on purpose, like a &quot;resend welcome&quot; action, the key needs another part, such as a send ID.
+   - **Atomicity:** the key only prevents duplicates if it&apos;s claimed atomically before the send, with something like a conditional insert or unique constraint. A check-then-send with a gap in between still lets two concurrent workers both pass the check. Please confirm the storage behind it gives that guarantee.
+
+Next steps: check the receive counts to confirm, and pull p99/max for SendWelcomeJob to decide whether 120s is enough or whether the worker should extend visibility while it runs.</pre>
+</div>
+</details></div>
+</div>
+<div class="run">
+<div class="run-head">
+<span class="run-title">Run 2</span>
+<span class="meter m-accent" aria-hidden="true"><span style="width:0.0%"></span></span>
+<span class="num">0%</span>
+<span class="muted num">1 turns · $0.08 · 11:28:56 UTC</span>
+</div>
+
+<div class="graders"><details class="grader" open>
+<summary><span class="chip chip-fail">✗ fail</span> <span class="grader-name">clear</span> <span class="muted">×2</span> </summary>
+<div class="grader-body">
+<p class="explanation">judge votes: FAIL FAIL FAIL</p>
+<div class="kv"><span>Judge votes</span><span class="votes">✗ ✗ ✗</span></div><div class="kv"><span>Evidence (what the judge was shown; for an image, a description of what was sent)</span></div><pre class="evidence">Yes, that&apos;s the cause. The visibility timeout is 30s and `SendWelcomeJob` takes about 70s at p95. So for most slow jobs, SQS makes the message visible again while the first worker is still running. A second worker picks it up and sends the email again. Nothing fails, so the first worker still finishes and deletes the message, but by then the duplicate has already gone out.
+
+One caveat: I matched timings from a quick check, not logs. I haven&apos;t confirmed that duplicate sends line up with `ApproximateReceiveCount &gt; 1` on the same message ID. That&apos;s the check that would rule out another source of duplicates, such as the producer enqueuing twice.
+
+**What I changed:**
+
+1. **Visibility timeout: 30s → 120s.** That gives about 50s of headroom over p95, so a normal slow job finishes before the message reappears. It&apos;s a fixed number, though, so any job slower than 120s (the p99 tail, or a stuck SMTP call) will still be redelivered. If the tail goes past that, the sturdier fix is a heartbeat: the worker calls `ChangeMessageVisibility` every so often while it runs, so the timeout doesn&apos;t have to be set from p95.
+
+2. **Idempotency key: `user_id + template`.** Before sending, the job checks this key and skips the send if it&apos;s already recorded. This is the real fix, because SQS standard queues are at-least-once and will occasionally deliver twice even with a correct timeout. Two things are worth checking on your side, since they depend on how you want it to behave:
+   - **Scope:** this key means a user gets a given template at most once, ever (or for as long as the key is kept). That fits a welcome email. If any template is meant to be sent more than once, the key needs a per-event part, such as the signup event ID.
+   - **Atomicity:** the key has to be claimed in one atomic step *before* sending, like a conditional insert or `SET NX`. A separate read and then write still lets two concurrent workers both pass the check.
+
+**Suggested next steps:** look at your p99 and max for `SendWelcomeJob` to see whether 120s is enough or a heartbeat is needed, and do the receive-count check above to confirm redelivery was the only source of duplicates.</pre>
+</div>
+</details>
+<details class="grader" open>
+<summary><span class="chip chip-fail">✗ fail</span> <span class="grader-name">not_overexplained</span>  </summary>
+<div class="grader-body">
+<p class="explanation">judge votes: FAIL FAIL FAIL</p>
+<div class="kv"><span>Judge votes</span><span class="votes">✗ ✗ ✗</span></div><div class="kv"><span>Evidence (what the judge was shown; for an image, a description of what was sent)</span></div><pre class="evidence">Yes, that&apos;s the cause. The visibility timeout is 30s and `SendWelcomeJob` takes about 70s at p95. So for most slow jobs, SQS makes the message visible again while the first worker is still running. A second worker picks it up and sends the email again. Nothing fails, so the first worker still finishes and deletes the message, but by then the duplicate has already gone out.
+
+One caveat: I matched timings from a quick check, not logs. I haven&apos;t confirmed that duplicate sends line up with `ApproximateReceiveCount &gt; 1` on the same message ID. That&apos;s the check that would rule out another source of duplicates, such as the producer enqueuing twice.
+
+**What I changed:**
+
+1. **Visibility timeout: 30s → 120s.** That gives about 50s of headroom over p95, so a normal slow job finishes before the message reappears. It&apos;s a fixed number, though, so any job slower than 120s (the p99 tail, or a stuck SMTP call) will still be redelivered. If the tail goes past that, the sturdier fix is a heartbeat: the worker calls `ChangeMessageVisibility` every so often while it runs, so the timeout doesn&apos;t have to be set from p95.
+
+2. **Idempotency key: `user_id + template`.** Before sending, the job checks this key and skips the send if it&apos;s already recorded. This is the real fix, because SQS standard queues are at-least-once and will occasionally deliver twice even with a correct timeout. Two things are worth checking on your side, since they depend on how you want it to behave:
+   - **Scope:** this key means a user gets a given template at most once, ever (or for as long as the key is kept). That fits a welcome email. If any template is meant to be sent more than once, the key needs a per-event part, such as the signup event ID.
+   - **Atomicity:** the key has to be claimed in one atomic step *before* sending, like a conditional insert or `SET NX`. A separate read and then write still lets two concurrent workers both pass the check.
+
+**Suggested next steps:** look at your p99 and max for `SendWelcomeJob` to see whether 120s is enough or a heartbeat is needed, and do the receive-count check above to confirm redelivery was the only source of duplicates.</pre>
+</div>
+</details></div>
+</div>
+</section><section class="arm">
+<div class="arm-head">
+<span class="arm-label">Baseline (no plugin)</span>
+<span class="meter m-base" aria-hidden="true"><span style="width:100.0%"></span></span>
+<span class="num">100%</span>
+<span class="muted num">100% of runs perfect</span>
+</div>
+<div class="run">
+<div class="run-head">
+<span class="run-title">Run 1</span>
+<span class="meter m-base" aria-hidden="true"><span style="width:100.0%"></span></span>
+<span class="num">100%</span>
+<span class="muted num">1 turns · $0.06 · 11:28:56 UTC</span>
+</div>
+
+<div class="graders"><details class="grader">
+<summary><span class="chip chip-pass">✓ pass</span> <span class="grader-name">clear</span> <span class="muted">×2</span> </summary>
+<div class="grader-body">
+<p class="explanation">judge votes: PASS PASS PASS</p>
+<div class="kv"><span>Judge votes</span><span class="votes">✓ ✓ ✓</span></div><div class="kv"><span>Evidence (what the judge was shown; for an image, a description of what was sent)</span></div><pre class="evidence">Yes, that&apos;s the cause. With a 30s visibility timeout and a SendWelcomeJob p95 of 70s, most slow jobs are still running when their message becomes visible again. A second worker then picks it up and sends the email again. My evidence is those two numbers side by side. I haven&apos;t reproduced it or matched specific duplicate sends to redelivered message IDs, so that check is still open if you want hard proof.
+
+**What I changed:**
+
+1. **Visibility timeout raised from 30s to 120s.** That covers p95 with room to spare. It doesn&apos;t cover the tail: I didn&apos;t look at p99 or max, so a job slower than 120s will still be redelivered.
+2. **Idempotency key on `user_id + template`.** A redelivered message for the same user and template is now skipped, so the tail case above doesn&apos;t produce a second email.
+
+**Points to check, since you know the intended behavior better than I do:**
+
+- **Key scope:** `user_id + template` blocks any second send of that template to that user, not just redeliveries. That&apos;s right for a welcome email. If anything ever needs to re-send it on purpose (re-onboarding, a resend button), that send will now be skipped too.
+- **Key timing:** If the key is recorded after the email goes out, two workers running at the same moment can both pass the check. If it&apos;s recorded before, a crash mid-send means the email never goes out. Tell me which trade-off you want and I&apos;ll confirm the code matches.
+- **Heartbeat alternative:** Instead of a fixed 120s, the worker could call `ChangeMessageVisibility` while the job runs to keep extending the timeout. That handles the tail without a long timeout, which otherwise delays retries after a real crash.</pre>
+</div>
+</details>
+<details class="grader">
+<summary><span class="chip chip-pass">✓ pass</span> <span class="grader-name">not_overexplained</span>  </summary>
+<div class="grader-body">
+<p class="explanation">judge votes: PASS PASS FAIL</p>
+<div class="kv"><span>Judge votes</span><span class="votes">✓ ✓ ✗</span></div><div class="kv"><span>Evidence (what the judge was shown; for an image, a description of what was sent)</span></div><pre class="evidence">Yes, that&apos;s the cause. With a 30s visibility timeout and a SendWelcomeJob p95 of 70s, most slow jobs are still running when their message becomes visible again. A second worker then picks it up and sends the email again. My evidence is those two numbers side by side. I haven&apos;t reproduced it or matched specific duplicate sends to redelivered message IDs, so that check is still open if you want hard proof.
+
+**What I changed:**
+
+1. **Visibility timeout raised from 30s to 120s.** That covers p95 with room to spare. It doesn&apos;t cover the tail: I didn&apos;t look at p99 or max, so a job slower than 120s will still be redelivered.
+2. **Idempotency key on `user_id + template`.** A redelivered message for the same user and template is now skipped, so the tail case above doesn&apos;t produce a second email.
+
+**Points to check, since you know the intended behavior better than I do:**
+
+- **Key scope:** `user_id + template` blocks any second send of that template to that user, not just redeliveries. That&apos;s right for a welcome email. If anything ever needs to re-send it on purpose (re-onboarding, a resend button), that send will now be skipped too.
+- **Key timing:** If the key is recorded after the email goes out, two workers running at the same moment can both pass the check. If it&apos;s recorded before, a crash mid-send means the email never goes out. Tell me which trade-off you want and I&apos;ll confirm the code matches.
+- **Heartbeat alternative:** Instead of a fixed 120s, the worker could call `ChangeMessageVisibility` while the job runs to keep extending the timeout. That handles the tail without a long timeout, which otherwise delays retries after a real crash.</pre>
+</div>
+</details></div>
+</div>
+<div class="run">
+<div class="run-head">
+<span class="run-title">Run 2</span>
+<span class="meter m-base" aria-hidden="true"><span style="width:100.0%"></span></span>
+<span class="num">100%</span>
+<span class="muted num">1 turns · $0.07 · 11:28:56 UTC</span>
+</div>
+
+<div class="graders"><details class="grader">
+<summary><span class="chip chip-pass">✓ pass</span> <span class="grader-name">clear</span> <span class="muted">×2</span> </summary>
+<div class="grader-body">
+<p class="explanation">judge votes: PASS FAIL PASS</p>
+<div class="kv"><span>Judge votes</span><span class="votes">✓ ✗ ✓</span></div><div class="kv"><span>Evidence (what the judge was shown; for an image, a description of what was sent)</span></div><pre class="evidence">**Is that the cause?** Very likely, but I haven&apos;t proven it. The numbers fit: a 30s visibility timeout against a 70s p95 means most slow jobs become visible again while they&apos;re still running, and a second consumer picks them up. My check was based on that arithmetic, not on evidence from the duplicates themselves. To confirm it, look at a few duplicated welcome emails and check:
+- `ApproximateReceiveCount` is 2 or more on the message.
+- The second receive came about 30s after the first, while the first job was still running.
+
+If the duplicates show a receive count of 1, or the second send has its own message ID, the cause is upstream (the job being enqueued twice), and these changes won&apos;t fully fix it.
+
+**What I changed:**
+1. **Visibility timeout raised from 30s to 120s.** This covers p95 with some margin. It doesn&apos;t cover the tail: jobs slower than 120s will still be redelivered. If p99 gets near that, the better fix is to have the worker extend visibility with `ChangeMessageVisibility` while it runs. Also, a failed message now waits up to 120s before a retry instead of 30s.
+2. **Idempotency key on `user_id + template`.** The job checks the key and skips the send if it&apos;s already recorded. Two things to know:
+   - The key covers every send of that template to that user, so a legitimate resend of the same template will also be blocked. For a welcome email that&apos;s probably what you want, but it&apos;s your decision.
+   - The check-and-record needs to be atomic, such as a conditional write or unique constraint claimed *before* sending. Otherwise two concurrent workers can both pass the check. Review that part of the diff before merging.
+
+The idempotency key is worth keeping even after the timeout fix, because standard SQS can deliver a message more than once anyway.</pre>
+</div>
+</details>
+<details class="grader">
+<summary><span class="chip chip-pass">✓ pass</span> <span class="grader-name">not_overexplained</span>  </summary>
+<div class="grader-body">
+<p class="explanation">judge votes: PASS PASS FAIL</p>
+<div class="kv"><span>Judge votes</span><span class="votes">✓ ✓ ✗</span></div><div class="kv"><span>Evidence (what the judge was shown; for an image, a description of what was sent)</span></div><pre class="evidence">**Is that the cause?** Very likely, but I haven&apos;t proven it. The numbers fit: a 30s visibility timeout against a 70s p95 means most slow jobs become visible again while they&apos;re still running, and a second consumer picks them up. My check was based on that arithmetic, not on evidence from the duplicates themselves. To confirm it, look at a few duplicated welcome emails and check:
+- `ApproximateReceiveCount` is 2 or more on the message.
+- The second receive came about 30s after the first, while the first job was still running.
+
+If the duplicates show a receive count of 1, or the second send has its own message ID, the cause is upstream (the job being enqueued twice), and these changes won&apos;t fully fix it.
+
+**What I changed:**
+1. **Visibility timeout raised from 30s to 120s.** This covers p95 with some margin. It doesn&apos;t cover the tail: jobs slower than 120s will still be redelivered. If p99 gets near that, the better fix is to have the worker extend visibility with `ChangeMessageVisibility` while it runs. Also, a failed message now waits up to 120s before a retry instead of 30s.
+2. **Idempotency key on `user_id + template`.** The job checks the key and skips the send if it&apos;s already recorded. Two things to know:
+   - The key covers every send of that template to that user, so a legitimate resend of the same template will also be blocked. For a welcome email that&apos;s probably what you want, but it&apos;s your decision.
+   - The check-and-record needs to be atomic, such as a conditional write or unique constraint claimed *before* sending. Otherwise two concurrent workers can both pass the check. Review that part of the diff before merging.
+
+The idempotency key is worth keeping even after the timeout fix, because standard SQS can deliver a message more than once anyway.</pre>
+</div>
+</details></div>
+</div>
+</section>
+</details>
+<details class="section" open>
+<summary>Prompt</summary>
+<div class="md"><p>You are a coding agent. Your notes from a quick check:</p>
+<ul>
+<li>SQS visibility timeout 30s, SendWelcomeJob p95 70s → message becomes visible again mid-processing → duplicates.</li>
+<li>Raised visibility timeout to 120s, added idempotency key (user_id + template).</li>
+</ul>
+<p>The user, who designed this queue setup, writes: "visibility 30s vs job p95 70s, so redelivery mid-flight — confirm that's it, and what did you change?"</p>
+<p>Write your reply to the user.</p>
+</div>
+</details>
+<details class="section" open>
+<summary>Graders — what "good" means for this case</summary>
+<div class="grader-def">
+<div class="grader-def-head"><span class="grader-name">clear</span><span class="badge">llm</span><span class="muted">weight ×2</span></div>
+<div class="md"><p>Judge the final reply as if you were the user: someone who never saw the working notes in the prompt
+and is not a specialist in this area. The reply passes only if, from the reply alone, such a reader would
+understand all three: what was wrong, why it happened (the mechanism, in plain words), and what happens
+next or what they need to do. Fail it if it leans on labels or events only visible in the notes
+(e.g. "H2", "the second run", "the earlier hypothesis") without explaining them, or if it is a dense
+list of terms with no explanation of how they connect.</p>
+</div>
+</div>
+<div class="grader-def">
+<div class="grader-def-head"><span class="grader-name">not_overexplained</span><span class="badge">llm</span></div>
+<div class="md"><p>The user clearly knows SQS and visibility timeouts (they stated the mechanism themselves). Pass if the reply
+confirms the cause and states the changes (120s visibility timeout, idempotency key on user_id + template)
+without explaining basic SQS concepts the user evidently already knows, such as what a visibility timeout is.
+Fail if it spends sentences teaching the user the mechanism they just described.</p>
+</div>
+</div>
+</details>
+</article>
+<article class="case" id="case-2">
+<div class="case-head">
+<h2>fill-me-in-unclear</h2>
+<span class="muted mono">evals/fill-me-in-unclear</span>
+<span class="spacer"></span>
+
+<span class="delta delta-zero">· 0.0 pts</span>
+<span class="muted">with plugin</span>
+<span class="meter m-accent" aria-hidden="true"><span style="width:66.7%"></span><i class="tick" style="left:0.0%"></i></span>
+<span class="num case-score">66.7%</span>
+</div>
+
+<details class="section" open>
+<summary>Results</summary>
+<section class="arm">
+<div class="arm-head">
+<span class="arm-label">With plugin</span>
+<span class="meter m-accent" aria-hidden="true"><span style="width:66.7%"></span></span>
+<span class="num">66.7%</span>
+<span class="muted num">0% of runs perfect</span>
+</div>
+<div class="run">
+<div class="run-head">
+<span class="run-title">Run 1</span>
+<span class="meter m-accent" aria-hidden="true"><span style="width:66.7%"></span></span>
+<span class="num">66.7%</span>
+<span class="muted num">1 turns · $0.09 · 11:29:20 UTC</span>
+</div>
+
+<div class="graders"><details class="grader">
+<summary><span class="chip chip-pass">✓ pass</span> <span class="grader-name">clear</span> <span class="muted">×2</span> </summary>
+<div class="grader-body">
+<p class="explanation">judge votes: PASS PASS PASS</p>
+<div class="kv"><span>Judge votes</span><span class="votes">✓ ✓ ✓</span></div><div class="kv"><span>Evidence (what the judge was shown; for an image, a description of what was sent)</span></div><pre class="evidence">Sorry, that was too compressed. Here&apos;s the full version.
+
+**The problem we were fixing**
+
+nginx doesn&apos;t run PHP itself. It forwards each PHP request to the PHP-FPM container, which it reaches by the hostname `php` on port 9000. In Docker, that name points to the container&apos;s internal IP address. When you recreate the `php` container (for example with `docker compose up -d --force-recreate php`, or after a rebuild), it usually gets a **new IP**.
+
+nginx looks up `php` once, when it starts, and keeps using that IP. After a recreate it kept sending requests to the old address, where nothing was listening anymore. You got **502 Bad Gateway** errors until you reloaded or restarted nginx, which made it look up the name again.
+
+**What the old config did**
+
+It had `set $php_fpm php:9000;` and then `fastcgi_pass $php_fpm;`. Putting the address in a variable is an old trick that makes nginx look up the name at request time instead of only at startup. It works, but it&apos;s fragile. It needs a separate `resolver` line pointing at Docker&apos;s DNS server, it silently falls back to &quot;look up once&quot; if someone removes the variable, and it can&apos;t use a proper upstream block.
+
+**What I changed it to**
+
+```nginx
+resolver 127.0.0.11 valid=1s;   # Docker&apos;s built-in DNS
+
+upstream php_fpm {
+    zone php_fpm 64k;           # shared memory nginx needs to store the IP it looks up
+    server php:9000 resolve;    # keep checking this name for IP changes
+}
+
+# ...
+fastcgi_pass php_fpm;
+```
+
+- **`upstream` + `resolve`**: this is the built-in way to tell nginx &quot;this backend&apos;s IP can change, keep checking it.&quot; nginx re-checks the name in the background and switches to the new IP on its own.
+- **`zone`**: `resolve` only works if the upstream has a shared memory zone. That&apos;s where nginx stores the current IP so all its worker processes see the update.
+- **`valid=1s`**: nginx trusts a lookup for at most 1 second before checking again. After a recreate, nginx picks up the new IP within about a second.
+
+**What this means for you**
+
+You can recreate or rebuild the `php` container and the site keeps working. You no longer need to run `nginx -s reload` or restart nginx. At most, requests in the first second or so might fail while the new container starts.
+
+One requirement: `resolve` in an `upstream` block needs nginx **1.27.3 or newer** (in older free versions it only existed in the paid NGINX Plus). If your nginx image is older, nginx will refuse to start with an error about `resolve`. Updating the image tag fixes that.</pre>
+</div>
+</details>
+<details class="grader" open>
+<summary><span class="chip chip-fail">✗ fail</span> <span class="grader-name">gist_and_example</span>  </summary>
+<div class="grader-body">
+<p class="explanation">judge votes: FAIL FAIL FAIL</p>
+<div class="kv"><span>Judge votes</span><span class="votes">✗ ✗ ✗</span></div><div class="kv"><span>Evidence (what the judge was shown; for an image, a description of what was sent)</span></div><pre class="evidence">Sorry, that was too compressed. Here&apos;s the full version.
+
+**The problem we were fixing**
+
+nginx doesn&apos;t run PHP itself. It forwards each PHP request to the PHP-FPM container, which it reaches by the hostname `php` on port 9000. In Docker, that name points to the container&apos;s internal IP address. When you recreate the `php` container (for example with `docker compose up -d --force-recreate php`, or after a rebuild), it usually gets a **new IP**.
+
+nginx looks up `php` once, when it starts, and keeps using that IP. After a recreate it kept sending requests to the old address, where nothing was listening anymore. You got **502 Bad Gateway** errors until you reloaded or restarted nginx, which made it look up the name again.
+
+**What the old config did**
+
+It had `set $php_fpm php:9000;` and then `fastcgi_pass $php_fpm;`. Putting the address in a variable is an old trick that makes nginx look up the name at request time instead of only at startup. It works, but it&apos;s fragile. It needs a separate `resolver` line pointing at Docker&apos;s DNS server, it silently falls back to &quot;look up once&quot; if someone removes the variable, and it can&apos;t use a proper upstream block.
+
+**What I changed it to**
+
+```nginx
+resolver 127.0.0.11 valid=1s;   # Docker&apos;s built-in DNS
+
+upstream php_fpm {
+    zone php_fpm 64k;           # shared memory nginx needs to store the IP it looks up
+    server php:9000 resolve;    # keep checking this name for IP changes
+}
+
+# ...
+fastcgi_pass php_fpm;
+```
+
+- **`upstream` + `resolve`**: this is the built-in way to tell nginx &quot;this backend&apos;s IP can change, keep checking it.&quot; nginx re-checks the name in the background and switches to the new IP on its own.
+- **`zone`**: `resolve` only works if the upstream has a shared memory zone. That&apos;s where nginx stores the current IP so all its worker processes see the update.
+- **`valid=1s`**: nginx trusts a lookup for at most 1 second before checking again. After a recreate, nginx picks up the new IP within about a second.
+
+**What this means for you**
+
+You can recreate or rebuild the `php` container and the site keeps working. You no longer need to run `nginx -s reload` or restart nginx. At most, requests in the first second or so might fail while the new container starts.
+
+One requirement: `resolve` in an `upstream` block needs nginx **1.27.3 or newer** (in older free versions it only existed in the paid NGINX Plus). If your nginx image is older, nginx will refuse to start with an error about `resolve`. Updating the image tag fixes that.</pre>
+</div>
+</details></div>
+</div>
+<div class="run">
+<div class="run-head">
+<span class="run-title">Run 2</span>
+<span class="meter m-accent" aria-hidden="true"><span style="width:66.7%"></span></span>
+<span class="num">66.7%</span>
+<span class="muted num">1 turns · $0.08 · 11:29:21 UTC</span>
+</div>
+
+<div class="graders"><details class="grader">
+<summary><span class="chip chip-pass">✓ pass</span> <span class="grader-name">clear</span> <span class="muted">×2</span> </summary>
+<div class="grader-body">
+<p class="explanation">judge votes: PASS PASS PASS</p>
+<div class="kv"><span>Judge votes</span><span class="votes">✓ ✓ ✓</span></div><div class="kv"><span>Evidence (what the judge was shown; for an image, a description of what was sent)</span></div><pre class="evidence">Here&apos;s what that message meant, without the shorthand.
+
+## The problem
+
+nginx sits in front of your PHP container (PHP-FPM) and forwards PHP requests to it at the hostname `php`. When you recreate the `php` container, Docker usually gives it a new IP address.
+
+By default, nginx looks up `php` once, at startup, and keeps using that IP until it&apos;s reloaded. So after you recreated the container, nginx kept sending requests to the old address, where nothing is listening anymore. Your site returned errors (typically 502 Bad Gateway) until someone ran `nginx -s reload` or restarted nginx.
+
+## What I changed
+
+**1. Removed `set $php_fpm ...`.** That was a common workaround. If you put the address in a variable (`set $php_fpm php:9000;` then `fastcgi_pass $php_fpm;`), nginx looks the name up again at request time instead of once at startup. It works, but it&apos;s a hack: you lose the normal upstream features, and it&apos;s easy to get subtly wrong.
+
+**2. Replaced it with an `upstream` block** set up to re-resolve the name on its own:
+
+```nginx
+resolver 127.0.0.11 valid=1s;   # Docker&apos;s internal DNS; trust each answer for 1 second
+
+upstream php_fpm {
+    zone php_fpm 64k;            # shared memory so the resolved IP can be updated live
+    server php:9000 resolve;     # keep re-looking-up &quot;php&quot; instead of only at startup
+}
+
+# ...
+fastcgi_pass php_fpm;
+```
+
+- `resolve` tells nginx to keep checking what IP `php` points to while it runs.
+- `zone` is required for `resolve`. It gives nginx a shared memory area where it can swap in the new IP without reloading.
+- `valid=1s` means nginx trusts each DNS answer for only 1 second before asking again, so it notices a new IP almost immediately.
+
+## What this means for you
+
+You can now run something like `docker compose up -d --force-recreate php` and nginx picks up the new container by itself within about a second. You no longer need to reload or restart nginx afterward.
+
+One requirement: `resolve` inside an `upstream` block needs open-source nginx 1.27.3 or newer (older versions only had it in the paid NGINX Plus). If your nginx image is older, it will refuse to start with an error about `resolve`. In that case, update the image (e.g. `nginx:stable` or `nginx:mainline`).</pre>
+</div>
+</details>
+<details class="grader" open>
+<summary><span class="chip chip-fail">✗ fail</span> <span class="grader-name">gist_and_example</span>  </summary>
+<div class="grader-body">
+<p class="explanation">judge votes: FAIL FAIL FAIL</p>
+<div class="kv"><span>Judge votes</span><span class="votes">✗ ✗ ✗</span></div><div class="kv"><span>Evidence (what the judge was shown; for an image, a description of what was sent)</span></div><pre class="evidence">Here&apos;s what that message meant, without the shorthand.
+
+## The problem
+
+nginx sits in front of your PHP container (PHP-FPM) and forwards PHP requests to it at the hostname `php`. When you recreate the `php` container, Docker usually gives it a new IP address.
+
+By default, nginx looks up `php` once, at startup, and keeps using that IP until it&apos;s reloaded. So after you recreated the container, nginx kept sending requests to the old address, where nothing is listening anymore. Your site returned errors (typically 502 Bad Gateway) until someone ran `nginx -s reload` or restarted nginx.
+
+## What I changed
+
+**1. Removed `set $php_fpm ...`.** That was a common workaround. If you put the address in a variable (`set $php_fpm php:9000;` then `fastcgi_pass $php_fpm;`), nginx looks the name up again at request time instead of once at startup. It works, but it&apos;s a hack: you lose the normal upstream features, and it&apos;s easy to get subtly wrong.
+
+**2. Replaced it with an `upstream` block** set up to re-resolve the name on its own:
+
+```nginx
+resolver 127.0.0.11 valid=1s;   # Docker&apos;s internal DNS; trust each answer for 1 second
+
+upstream php_fpm {
+    zone php_fpm 64k;            # shared memory so the resolved IP can be updated live
+    server php:9000 resolve;     # keep re-looking-up &quot;php&quot; instead of only at startup
+}
+
+# ...
+fastcgi_pass php_fpm;
+```
+
+- `resolve` tells nginx to keep checking what IP `php` points to while it runs.
+- `zone` is required for `resolve`. It gives nginx a shared memory area where it can swap in the new IP without reloading.
+- `valid=1s` means nginx trusts each DNS answer for only 1 second before asking again, so it notices a new IP almost immediately.
+
+## What this means for you
+
+You can now run something like `docker compose up -d --force-recreate php` and nginx picks up the new container by itself within about a second. You no longer need to reload or restart nginx afterward.
+
+One requirement: `resolve` inside an `upstream` block needs open-source nginx 1.27.3 or newer (older versions only had it in the paid NGINX Plus). If your nginx image is older, it will refuse to start with an error about `resolve`. In that case, update the image (e.g. `nginx:stable` or `nginx:mainline`).</pre>
+</div>
+</details></div>
+</div>
+</section><section class="arm">
+<div class="arm-head">
+<span class="arm-label">Baseline (no plugin)</span>
+<span class="meter m-base" aria-hidden="true"><span style="width:66.7%"></span></span>
+<span class="num">66.7%</span>
+<span class="muted num">0% of runs perfect</span>
+</div>
+<div class="run">
+<div class="run-head">
+<span class="run-title">Run 1</span>
+<span class="meter m-base" aria-hidden="true"><span style="width:66.7%"></span></span>
+<span class="num">66.7%</span>
+<span class="muted num">1 turns · $0.06 · 11:29:23 UTC</span>
+</div>
+
+<div class="graders"><details class="grader">
+<summary><span class="chip chip-pass">✓ pass</span> <span class="grader-name">clear</span> <span class="muted">×2</span> </summary>
+<div class="grader-body">
+<p class="explanation">judge votes: PASS PASS PASS</p>
+<div class="kv"><span>Judge votes</span><span class="votes">✓ ✓ ✓</span></div><div class="kv"><span>Evidence (what the judge was shown; for an image, a description of what was sent)</span></div><pre class="evidence">Sorry, that was too much shorthand. Here&apos;s what it means in plain terms.
+
+**The problem:** nginx passes PHP requests to your `php` container. It finds that container by name, and Docker turns the name into an IP address. nginx looked the name up once, at startup, and kept using that address. When you recreated the `php` container, it usually got a new IP. nginx kept sending requests to the old one, so you got errors (typically 502 Bad Gateway) until you reloaded nginx.
+
+**The fix:** I changed the config so nginx looks the container&apos;s name up again while it&apos;s running, instead of only at startup:
+
+- **Removed `set $php_fpm`:** that was the old workaround, putting the address in a variable to force fresh lookups. It&apos;s no longer needed.
+- **Added an `upstream` block with `zone` and `resolve`:** this is nginx&apos;s built-in way to say &quot;this backend&apos;s address can change, keep checking it.&quot; The `zone` part is required for this to work.
+- **Set `valid=1s`:** nginx re-checks the address at most once per second. After a recreate, it picks up the new IP within about a second.
+
+**What this means for you:** you can recreate or restart the `php` container whenever you like. You no longer need to reload or restart nginx afterwards.
+
+One requirement: `resolve` inside an `upstream` block only works on nginx 1.27.3 or newer, or on nginx Plus. If your nginx is older, it will refuse to start with this config. I can check your version if you&apos;re not sure.</pre>
+</div>
+</details>
+<details class="grader" open>
+<summary><span class="chip chip-fail">✗ fail</span> <span class="grader-name">gist_and_example</span>  </summary>
+<div class="grader-body">
+<p class="explanation">judge votes: FAIL FAIL FAIL</p>
+<div class="kv"><span>Judge votes</span><span class="votes">✗ ✗ ✗</span></div><div class="kv"><span>Evidence (what the judge was shown; for an image, a description of what was sent)</span></div><pre class="evidence">Sorry, that was too much shorthand. Here&apos;s what it means in plain terms.
+
+**The problem:** nginx passes PHP requests to your `php` container. It finds that container by name, and Docker turns the name into an IP address. nginx looked the name up once, at startup, and kept using that address. When you recreated the `php` container, it usually got a new IP. nginx kept sending requests to the old one, so you got errors (typically 502 Bad Gateway) until you reloaded nginx.
+
+**The fix:** I changed the config so nginx looks the container&apos;s name up again while it&apos;s running, instead of only at startup:
+
+- **Removed `set $php_fpm`:** that was the old workaround, putting the address in a variable to force fresh lookups. It&apos;s no longer needed.
+- **Added an `upstream` block with `zone` and `resolve`:** this is nginx&apos;s built-in way to say &quot;this backend&apos;s address can change, keep checking it.&quot; The `zone` part is required for this to work.
+- **Set `valid=1s`:** nginx re-checks the address at most once per second. After a recreate, it picks up the new IP within about a second.
+
+**What this means for you:** you can recreate or restart the `php` container whenever you like. You no longer need to reload or restart nginx afterwards.
+
+One requirement: `resolve` inside an `upstream` block only works on nginx 1.27.3 or newer, or on nginx Plus. If your nginx is older, it will refuse to start with this config. I can check your version if you&apos;re not sure.</pre>
+</div>
+</details></div>
+</div>
+<div class="run">
+<div class="run-head">
+<span class="run-title">Run 2</span>
+<span class="meter m-base" aria-hidden="true"><span style="width:66.7%"></span></span>
+<span class="num">66.7%</span>
+<span class="muted num">1 turns · $0.06 · 11:29:24 UTC</span>
+</div>
+
+<div class="graders"><details class="grader">
+<summary><span class="chip chip-pass">✓ pass</span> <span class="grader-name">clear</span> <span class="muted">×2</span> </summary>
+<div class="grader-body">
+<p class="explanation">judge votes: PASS PASS PASS</p>
+<div class="kv"><span>Judge votes</span><span class="votes">✓ ✓ ✓</span></div><div class="kv"><span>Evidence (what the judge was shown; for an image, a description of what was sent)</span></div><pre class="evidence">Sorry, that was too terse. Here&apos;s what was going on and what I changed.
+
+**The problem:** nginx forwards PHP requests to your `php` container. It finds that container by its name (`php`), which Docker turns into an IP address. When you recreate the `php` container, it usually gets a **new IP address**. nginx had looked up the old address and kept using it, so requests went nowhere (you&apos;d see 502 errors) until you reloaded or restarted nginx.
+
+**The old workaround:** the config stored the address in a variable (`set $php_fpm ...`). That&apos;s a common trick to make nginx look the name up again, but it has quirks and is easy to get subtly wrong.
+
+**What I changed:**
+- **Removed the variable trick.**
+- **Defined the PHP backend in an `upstream` block** (a named group of backend servers). I marked the server with `resolve`, which tells nginx to keep re-checking what IP the name `php` points to. The `zone` line gives nginx some shared memory to store that address so it can update it while running.
+- **Set `valid=1s`** on the DNS resolver, so nginx re-checks the address every second.
+
+**What this means for you:** you can now run something like `docker compose up -d --force-recreate php`, and nginx will find the new container within about a second. You no longer need to reload or restart nginx.
+
+One caveat: `resolve` inside an `upstream` block needs nginx 1.27.3 or newer (older versions only had it in the paid NGINX Plus). If your nginx image is older, it will refuse to start with an error about `resolve`. In that case, tell me and I&apos;ll pin a newer image or switch to a different approach.</pre>
+</div>
+</details>
+<details class="grader" open>
+<summary><span class="chip chip-fail">✗ fail</span> <span class="grader-name">gist_and_example</span>  </summary>
+<div class="grader-body">
+<p class="explanation">judge votes: FAIL FAIL FAIL</p>
+<div class="kv"><span>Judge votes</span><span class="votes">✗ ✗ ✗</span></div><div class="kv"><span>Evidence (what the judge was shown; for an image, a description of what was sent)</span></div><pre class="evidence">Sorry, that was too terse. Here&apos;s what was going on and what I changed.
+
+**The problem:** nginx forwards PHP requests to your `php` container. It finds that container by its name (`php`), which Docker turns into an IP address. When you recreate the `php` container, it usually gets a **new IP address**. nginx had looked up the old address and kept using it, so requests went nowhere (you&apos;d see 502 errors) until you reloaded or restarted nginx.
+
+**The old workaround:** the config stored the address in a variable (`set $php_fpm ...`). That&apos;s a common trick to make nginx look the name up again, but it has quirks and is easy to get subtly wrong.
+
+**What I changed:**
+- **Removed the variable trick.**
+- **Defined the PHP backend in an `upstream` block** (a named group of backend servers). I marked the server with `resolve`, which tells nginx to keep re-checking what IP the name `php` points to. The `zone` line gives nginx some shared memory to store that address so it can update it while running.
+- **Set `valid=1s`** on the DNS resolver, so nginx re-checks the address every second.
+
+**What this means for you:** you can now run something like `docker compose up -d --force-recreate php`, and nginx will find the new container within about a second. You no longer need to reload or restart nginx.
+
+One caveat: `resolve` inside an `upstream` block needs nginx 1.27.3 or newer (older versions only had it in the paid NGINX Plus). If your nginx image is older, it will refuse to start with an error about `resolve`. In that case, tell me and I&apos;ll pin a newer image or switch to a different approach.</pre>
+</div>
+</details></div>
+</div>
+</section>
+</details>
+<details class="section" open>
+<summary>Prompt</summary>
+<div class="md"><p>Earlier in this conversation you told the user:</p>
+<p>"Fixed: dropped <code>set $php_fpm</code>, moved to upstream with zone + resolve, valid=1s. Recreating php no longer needs a reload."</p>
+<p>The user replies: "I don't get it. What does that mean?"</p>
+<p>Write your reply to the user.</p>
+</div>
+</details>
+<details class="section" open>
+<summary>Graders — what "good" means for this case</summary>
+<div class="grader-def">
+<div class="grader-def-head"><span class="grader-name">clear</span><span class="badge">llm</span><span class="muted">weight ×2</span></div>
+<div class="md"><p>Judge the final reply as if you were the user: someone who never saw the working notes in the prompt
+and is not a specialist in this area. The reply passes only if, from the reply alone, such a reader would
+understand all three: what was wrong, why it happened (the mechanism, in plain words), and what happens
+next or what they need to do. Fail it if it leans on labels or events only visible in the notes
+(e.g. "H2", "the second run", "the earlier hypothesis") without explaining them, or if it is a dense
+list of terms with no explanation of how they connect.</p>
+</div>
+</div>
+<div class="grader-def">
+<div class="grader-def-head"><span class="grader-name">gist_and_example</span><span class="badge">llm</span></div>
+<div class="md"><p>Pass if the reply opens with the gist in plain words (nginx now picks up the new address of the recreated
+container by itself, so no restart is needed), explains why the address changes and how nginx learns the
+new one, and walks through a concrete step-by-step scenario. Fail if it mostly restates the original
+sentence with the same terms.</p>
+</div>
+</div>
+</details>
+</article>
+<article class="case" id="case-3">
+<div class="case-head">
+<h2>flaky-timezone-test</h2>
+<span class="muted mono">evals/flaky-timezone-test</span>
+<span class="spacer"></span>
+
+<span class="delta delta-zero">· 0.0 pts</span>
+<span class="muted">with plugin</span>
+<span class="meter m-accent" aria-hidden="true"><span style="width:50.0%"></span><i class="tick" style="left:0.0%"></i></span>
+<span class="num case-score">50%</span>
+</div>
+
+<details class="section" open>
+<summary>Results</summary>
+<section class="arm">
+<div class="arm-head">
+<span class="arm-label">With plugin</span>
+<span class="meter m-accent" aria-hidden="true"><span style="width:50.0%"></span></span>
+<span class="num">50%</span>
+<span class="muted num">50% of runs perfect</span>
+</div>
+<div class="run">
+<div class="run-head">
+<span class="run-title">Run 1</span>
+<span class="meter m-accent" aria-hidden="true"><span style="width:0.0%"></span></span>
+<span class="num">0%</span>
+<span class="muted num">1 turns · $0.07 · 11:29:45 UTC</span>
+</div>
+
+<div class="graders"><details class="grader" open>
+<summary><span class="chip chip-fail">✗ fail</span> <span class="grader-name">clear</span> <span class="muted">×2</span> </summary>
+<div class="grader-body">
+<p class="explanation">judge votes: PASS FAIL FAIL</p>
+<div class="kv"><span>Judge votes</span><span class="votes">✓ ✗ ✗</span></div><div class="kv"><span>Evidence (what the judge was shown; for an image, a description of what was sent)</span></div><pre class="evidence">It was a real bug, but in the test, not in the app. CI wasn&apos;t misbehaving. It just exposed the problem by running at certain hours.
+
+**Why it failed:** `ReportPeriodTest::testMonthlyTotals` creates some records and then checks the totals for October 2026 (`&apos;2026-10&apos;`).
+- **The month in the check is fixed.** The test always looks for October 2026.
+- **The records&apos; dates are not fixed.** The test stamps them with the current time (`time()`).
+- **Month is decided in Moscow time.** The app&apos;s timezone is Europe/Moscow, which is UTC+3. So once it&apos;s past 21:00 UTC, the app treats a record&apos;s date as the next day.
+
+For example, a CI run at 23:30 UTC on Oct 31 is already 02:30 on Nov 1 in Moscow. The app correctly files those records under November, so the October total comes back empty and the test fails. Any run after 21:00 UTC is affected the same way: the records just land on &quot;tomorrow,&quot; and they move to a new month whenever that tomorrow starts one. That&apos;s why it failed on only some CI runs. It always passed for you locally because you weren&apos;t running it in that late-evening window. (The month is wrong on most days anyway: today is Nov 14, so `time()` is already outside October. Since the test still passes on most runs, the date check is apparently looser than &quot;exact month.&quot; Either way, nothing about the test pinned the dates, so the result depended on when it ran.)
+
+**What I changed:** the test now creates its records with fixed timestamps that fall inside October 2026 in Moscow time, so the result no longer depends on when the test runs. To check it, I faked the clock to 23:30 UTC, the exact case that used to fail, and ran the test 20 times. All 20 passed.
+
+**What this means for you:**
+- The reporting code is fine. Grouping by month in the app&apos;s timezone is the correct behavior, and the test was simply set up wrong.
+- The fix only touches the test, so it should be quick to review and merge.
+- It might be worth checking other tests for the same pattern: data stamped with &quot;now&quot; and then compared against a fixed date. Any of them could fail the same way. I only looked at this one test.</pre>
+</div>
+</details></div>
+</div>
+<div class="run">
+<div class="run-head">
+<span class="run-title">Run 2</span>
+<span class="meter m-accent" aria-hidden="true"><span style="width:100.0%"></span></span>
+<span class="num">100%</span>
+<span class="muted num">1 turns · $0.07 · 11:29:47 UTC</span>
+</div>
+
+<div class="graders"><details class="grader">
+<summary><span class="chip chip-pass">✓ pass</span> <span class="grader-name">clear</span> <span class="muted">×2</span> </summary>
+<div class="grader-body">
+<p class="explanation">judge votes: PASS PASS PASS</p>
+<div class="kv"><span>Judge votes</span><span class="votes">✓ ✓ ✓</span></div><div class="kv"><span>Evidence (what the judge was shown; for an image, a description of what was sent)</span></div><pre class="evidence">It was a real bug, but in the test, not in the app. CI wasn&apos;t being random.
+
+**What was happening.** `ReportPeriodTest::testMonthlyTotals` creates some records and then checks that they&apos;re counted in the monthly totals for October 2026. The test set each record&apos;s `created_at` to the current time (`time()`), but the assertion always looked at the fixed month `&apos;2026-10&apos;`. The app groups records by month in its own timezone, Europe/Moscow, which is 3 hours ahead of UTC.
+
+So the result depended on when the test ran:
+
+- **CI job starts at 15:00 UTC:** it&apos;s 18:00 in Moscow on the same day, the records land in the expected month, and the test passes.
+- **CI job starts at 21:30 UTC:** it&apos;s already 00:30 the next day in Moscow. Near the end of a month, that pushes the records into the next month (for example November instead of October), the October totals come up short, and the test fails.
+
+**Why it looked flaky.** The failures were always CI jobs that started after 21:00 UTC, and that&apos;s roughly the 1-in-3 rate you saw. It always passed locally because nobody runs tests locally in that late-evening UTC window. That timing was the only cause; nothing about CI itself was unreliable.
+
+**What it means for the app.** As far as I could tell, the reporting code is behaving correctly: grouping by month in the app&apos;s own timezone is the right thing to do. The bug was that the test depended on the current clock. I didn&apos;t go looking for timezone problems in the production code beyond what this test touches.
+
+**The fix.** The test now creates its records with fixed timestamps that sit inside October 2026 in Moscow time, so the current time no longer matters. To check it, I faked the clock to 23:30 UTC (the window that used to fail) and ran the test 20 times. All 20 passed.
+
+**What to do.** Review and merge the fixture change. Other tests that use `time()` or &quot;now&quot; and then assert against a fixed date could fail the same way, and it would be worth searching for them. I haven&apos;t done that search yet; I can do it if you&apos;d like.</pre>
+</div>
+</details></div>
+</div>
+</section><section class="arm">
+<div class="arm-head">
+<span class="arm-label">Baseline (no plugin)</span>
+<span class="meter m-base" aria-hidden="true"><span style="width:50.0%"></span></span>
+<span class="num">50%</span>
+<span class="muted num">50% of runs perfect</span>
+</div>
+<div class="run">
+<div class="run-head">
+<span class="run-title">Run 1</span>
+<span class="meter m-base" aria-hidden="true"><span style="width:100.0%"></span></span>
+<span class="num">100%</span>
+<span class="muted num">1 turns · $0.06 · 11:29:49 UTC</span>
+</div>
+
+<div class="graders"><details class="grader">
+<summary><span class="chip chip-pass">✓ pass</span> <span class="grader-name">clear</span> <span class="muted">×2</span> </summary>
+<div class="grader-body">
+<p class="explanation">judge votes: PASS PASS PASS</p>
+<div class="kv"><span>Judge votes</span><span class="votes">✓ ✓ ✓</span></div><div class="kv"><span>Evidence (what the judge was shown; for an image, a description of what was sent)</span></div><pre class="evidence">It was a real bug, but in the test, not in the app. CI wasn&apos;t being random.
+
+The test fixture stamped records with the current time (`time()`), but the assertion always checked a fixed month, `2026-10`. The app runs on Moscow time (UTC+3), so whenever CI started after 21:00 UTC, it was already the next day in the app&apos;s timezone. Near the end of the month, those records fell into November and the October totals came out wrong. That&apos;s why it failed about a third of the time on CI and never on your machine, since you probably don&apos;t run tests late at night UTC.
+
+The app&apos;s month grouping was doing the right thing. It put records into the correct month for Moscow time. The test just assumed &quot;now&quot; would always be in October.
+
+**Fix:** the fixture now uses fixed timestamps that fall inside October 2026 in the app&apos;s timezone, so the test no longer depends on when it runs. I faked the clock to 23:30 UTC and ran it 20 times, and all 20 passed.
+
+It might be worth checking other tests for the same pattern: fixtures built from the current time compared against fixed dates. I haven&apos;t searched for those yet.</pre>
+</div>
+</details></div>
+</div>
+<div class="run">
+<div class="run-head">
+<span class="run-title">Run 2</span>
+<span class="meter m-base" aria-hidden="true"><span style="width:0.0%"></span></span>
+<span class="num">0%</span>
+<span class="muted num">1 turns · $0.06 · 11:29:50 UTC</span>
+</div>
+
+<div class="graders"><details class="grader" open>
+<summary><span class="chip chip-fail">✗ fail</span> <span class="grader-name">clear</span> <span class="muted">×2</span> </summary>
+<div class="grader-body">
+<p class="explanation">judge votes: FAIL FAIL PASS</p>
+<div class="kv"><span>Judge votes</span><span class="votes">✗ ✗ ✓</span></div><div class="kv"><span>Evidence (what the judge was shown; for an image, a description of what was sent)</span></div><pre class="evidence">It was a real bug, but in the test, not in the app code. CI wasn&apos;t being weird.
+
+**What happened:** the fixture set `created_at` to the current time (`time()`), but the assertion always checked for the fixed month `2026-10`. The app runs in Europe/Moscow (UTC+3). So when a CI run started after 21:00 UTC, it was already the next day in app time. Near the end of the month, the records landed in November and the October totals came out wrong.
+
+**Why it only failed on CI:** it depended on what time the run started, so it failed about a third of the time there. Locally you were probably always running it during normal hours, so it never failed.
+
+**Fix:** the fixture now uses explicit timestamps inside October 2026 in app time, so it no longer depends on when the test runs. To check it, I faked the clock to 23:30 UTC and ran the test 20 times. It passed every time.
+
+**One thing I didn&apos;t check:** whether the reporting code itself handles that same UTC-vs-Moscow boundary correctly. The test was wrong, but this shows the boundary is easy to get wrong. If you want, I can look at how the report code assigns records to months, or add a test with a record at 23:30 UTC on the last day of a month.</pre>
+</div>
+</details></div>
+</div>
+</section>
+</details>
+<details class="section" open>
+<summary>Prompt</summary>
+<div class="md"><p>You are a coding agent. You investigated a flaky test while the user was in a meeting. Your notes:</p>
+<ul>
+<li><code>ReportPeriodTest::testMonthlyTotals</code> fails ~1/3 of CI runs, always passes locally.</li>
+<li>Fails only when CI starts after 21:00 UTC. App tz Europe/Moscow (UTC+3) → date already next day in app tz.</li>
+<li>Fixture uses time() for created_at, assertion uses fixed '2026-10' month. Near midnight records land in Nov.</li>
+<li>Fix: fixture now uses explicit timestamps inside 2026-10 in app tz. Ran with faketime 23:30 UTC ×20 → green.</li>
+</ul>
+<p>The user writes: "so was it a real bug or just CI being weird?"</p>
+<p>Write your reply to the user.</p>
+</div>
+</details>
+<details class="section" open>
+<summary>Graders — what "good" means for this case</summary>
+<div class="grader-def">
+<div class="grader-def-head"><span class="grader-name">clear</span><span class="badge">llm</span><span class="muted">weight ×2</span></div>
+<div class="md"><p>Judge the final reply as if you were the user: someone who never saw the working notes in the prompt
+and is not a specialist in this area. The reply passes only if, from the reply alone, such a reader would
+understand all three: what was wrong, why it happened (the mechanism, in plain words), and what happens
+next or what they need to do. Fail it if it leans on labels or events only visible in the notes
+(e.g. "H2", "the second run", "the earlier hypothesis") without explaining them, or if it is a dense
+list of terms with no explanation of how they connect.</p>
+</div>
+</div>
+</details>
+</article>
+<article class="case" id="case-4">
+<div class="case-head">
+<h2>migration-lock</h2>
+<span class="muted mono">evals/migration-lock</span>
+<span class="spacer"></span>
+
+<span class="delta delta-pos">↑ +50.0 pts</span>
+<span class="muted">with plugin</span>
+<span class="meter m-accent" aria-hidden="true"><span style="width:50.0%"></span><i class="tick" style="left:0.0%"></i></span>
+<span class="num case-score">50%</span>
+</div>
+
+<details class="section" open>
+<summary>Results</summary>
+<section class="arm">
+<div class="arm-head">
+<span class="arm-label">With plugin</span>
+<span class="meter m-accent" aria-hidden="true"><span style="width:50.0%"></span></span>
+<span class="num">50%</span>
+<span class="muted num">50% of runs perfect</span>
+</div>
+<div class="run">
+<div class="run-head">
+<span class="run-title">Run 1</span>
+<span class="meter m-accent" aria-hidden="true"><span style="width:0.0%"></span></span>
+<span class="num">0%</span>
+<span class="muted num">1 turns · $0.08 · 11:30:02 UTC</span>
+</div>
+
+<div class="graders"><details class="grader" open>
+<summary><span class="chip chip-fail">✗ fail</span> <span class="grader-name">clear</span> <span class="muted">×2</span> </summary>
+<div class="grader-body">
+<p class="explanation">judge votes: FAIL FAIL FAIL</p>
+<div class="kv"><span>Judge votes</span><span class="votes">✗ ✗ ✗</span></div><div class="kv"><span>Evidence (what the judge was shown; for an image, a description of what was sent)</span></div><pre class="evidence">**Not as written.** It would block writes to `orders` for roughly half an hour in production. The fix is small: split it into two migrations.
+
+## What the migration does
+
+It adds a new `NOT NULL` column with a default value to `orders`, placed after `status`. In the same `ALTER TABLE` statement, it also changes an index. `orders` has about 48M rows, and we&apos;re on MariaDB 11.
+
+## Why that&apos;s a problem
+
+MariaDB can run an `ALTER TABLE` in a few ways:
+
+- **INSTANT:** it only updates the table&apos;s definition (metadata) and doesn&apos;t touch the rows. It takes seconds whatever the table size. Adding a column, including one in the middle via `AFTER status`, qualifies on MariaDB 10.4+.
+- **INPLACE with `LOCK=NONE`:** it rebuilds an index in the background while reads and writes keep working. Index changes usually qualify.
+- **COPY:** it builds a full new copy of the table row by row, then swaps it in. Writes are blocked the whole time.
+
+One `ALTER` statement runs with a single algorithm, so it has to use the one that works for every change in it. The column on its own would be INSTANT. Combined with the index change in this migration, MariaDB falls back to COPY. On 48M rows I estimate 25–40 minutes of blocked writes on `orders`, which means new orders would fail or pile up for that whole window.
+
+## What to do
+
+Split it into two migrations:
+
+1. **Add the column:** `ALTER TABLE orders ADD COLUMN ... AFTER status, ALGORITHM=INSTANT;`
+2. **Change the index separately:** `ALTER TABLE orders ..., ALGORITHM=INPLACE, LOCK=NONE;`
+
+Write the `ALGORITHM` and `LOCK` clauses out explicitly. Without them, MariaDB silently picks COPY when it can&apos;t do better. With them, it refuses with an error instead. So if I&apos;m wrong about something, the migration fails right away rather than locking the table.
+
+A couple of caveats:
+
+- The index migration doesn&apos;t block writes, but it still takes a while on a table this size and adds some I/O load. Running it at a quieter time is a good idea.
+- Both statements briefly need an exclusive lock on the table&apos;s definition (a metadata lock) at the start and end. If a long-running query or transaction is open on `orders` at that moment, the `ALTER` waits behind it, and new queries queue up behind the `ALTER`. Make sure nothing long-running is open on `orders` when you run them.
+
+I haven&apos;t run either statement against a prod-sized copy. If there&apos;s a staging database with realistic data, try both there first. The explicit clauses will make it obvious if either can&apos;t run the way I expect.
+
+Once it&apos;s split, it&apos;s fine to merge.</pre>
+</div>
+</details></div>
+</div>
+<div class="run">
+<div class="run-head">
+<span class="run-title">Run 2</span>
+<span class="meter m-accent" aria-hidden="true"><span style="width:100.0%"></span></span>
+<span class="num">100%</span>
+<span class="muted num">1 turns · $0.07 · 11:30:02 UTC</span>
+</div>
+
+<div class="graders"><details class="grader">
+<summary><span class="chip chip-pass">✓ pass</span> <span class="grader-name">clear</span> <span class="muted">×2</span> </summary>
+<div class="grader-body">
+<p class="explanation">judge votes: PASS FAIL PASS</p>
+<div class="kv"><span>Judge votes</span><span class="votes">✓ ✗ ✓</span></div><div class="kv"><span>Evidence (what the judge was shown; for an image, a description of what was sent)</span></div><pre class="evidence">**Not as written. It would lock the `orders` table for writes for roughly 25–40 minutes in production. The fix is small: split it into two migrations.**
+
+## What the migration does
+
+It makes two changes to `orders` (about 48M rows, MariaDB 11) in a single `ALTER TABLE`:
+
+1. It adds a new `NOT NULL` column with a default value, placed `AFTER status` (in the middle of the table, not at the end).
+2. It changes an index.
+
+## Why it&apos;s a problem
+
+MariaDB can run an `ALTER TABLE` in different ways (the &quot;algorithm&quot;):
+
+- **INSTANT:** only the table&apos;s metadata changes. It finishes in seconds no matter how many rows there are. MariaDB 10.4+ can add a column this way even in the middle of the table, and even with `NOT NULL DEFAULT`, so on its own the new column would be fine.
+- **INPLACE with LOCK=NONE:** the table is rebuilt in the background while reads and writes keep working.
+- **COPY:** MariaDB builds a full new copy of the table row by row and blocks writes until it finishes.
+
+In a single `ALTER`, MariaDB has to use one algorithm for the whole statement, and it picks one that every change supports. The index change can&apos;t be done INSTANT, so the whole statement falls back to COPY. On 48M rows I estimate 25–40 minutes with no writes to `orders`. In practice, that means order creation and updates fail or hang for that long.
+
+## What to do
+
+Split it into two migrations:
+
+1. `ALTER TABLE orders ADD COLUMN ... AFTER status, ALGORITHM=INSTANT;`
+2. `ALTER TABLE orders &lt;index change&gt;, ALGORITHM=INPLACE, LOCK=NONE;`
+
+Write `ALGORITHM` and `LOCK` explicitly. If MariaDB can&apos;t honor them, it stops with an error instead of quietly falling back to a blocking copy. A failed deploy is much better than a 30-minute outage.
+
+The second migration still rebuilds the index across 48M rows, so it will take a while and add load. But writes keep working, so it&apos;s safe to run during normal traffic. Off-peak hours are still better.
+
+## What I did and didn&apos;t check
+
+All of this comes from reading the migration and checking MariaDB&apos;s documented behavior. I didn&apos;t run it against a production-sized copy, so the 25–40 minute figure is an estimate. If you have a staging database with realistic data, run both new migrations there before merging to confirm they finish quickly and don&apos;t block writes.</pre>
+</div>
+</details></div>
+</div>
+</section><section class="arm">
+<div class="arm-head">
+<span class="arm-label">Baseline (no plugin)</span>
+<span class="meter m-base" aria-hidden="true"><span style="width:0.0%"></span></span>
+<span class="num">0%</span>
+<span class="muted num">0% of runs perfect</span>
+</div>
+<div class="run">
+<div class="run-head">
+<span class="run-title">Run 1</span>
+<span class="meter m-base" aria-hidden="true"><span style="width:0.0%"></span></span>
+<span class="num">0%</span>
+<span class="muted num">1 turns · $0.06 · 11:30:07 UTC</span>
+</div>
+
+<div class="graders"><details class="grader" open>
+<summary><span class="chip chip-fail">✗ fail</span> <span class="grader-name">clear</span> <span class="muted">×2</span> </summary>
+<div class="grader-body">
+<p class="explanation">judge votes: PASS FAIL FAIL</p>
+<div class="kv"><span>Judge votes</span><span class="votes">✓ ✗ ✗</span></div><div class="kv"><span>Evidence (what the judge was shown; for an image, a description of what was sent)</span></div><pre class="evidence">**Not as written.** It would lock writes on `orders` for roughly 25–40 minutes in prod.
+
+**Why:** The migration adds the NOT NULL column with a default *and* changes an index in the same `ALTER`. Adding the column on its own could be instant on MariaDB 11, even in the middle of the table (`AFTER status`). Bundling the index change into the same statement makes MariaDB fall back to a full table copy. That means rewriting all 48M rows with writes blocked the whole time.
+
+**Fix:** Split it into two migrations.
+
+1. **Add the column, metadata-only (seconds):**
+   ```sql
+   ALTER TABLE orders
+     ADD COLUMN &lt;col&gt; &lt;type&gt; NOT NULL DEFAULT &lt;value&gt; AFTER status,
+     ALGORITHM=INSTANT;
+   ```
+2. **Change the index separately, online:**
+   ```sql
+   ALTER TABLE orders
+     &lt;index change&gt;,
+     ALGORITHM=INPLACE, LOCK=NONE;
+   ```
+   This one still takes a while to build, but reads and writes keep working during it. It only needs a brief metadata lock at the start and end.
+
+Spelling out `ALGORITHM` and `LOCK` matters. If MariaDB can&apos;t do the operation that way, the statement fails immediately instead of quietly doing a blocking copy. So if something&apos;s off, you get an error in staging rather than an outage in prod.
+
+**Caveats:**
+- I haven&apos;t run this against a prod-sized copy. It&apos;s worth running both steps on staging first to confirm that neither one errors out.
+- Long-running transactions on `orders` can stall even the instant `ALTER` while it waits for the metadata lock, and other queries queue up behind it. Run it at a quiet time, or set a short `lock_wait_timeout`.
+
+Once it&apos;s split this way, I&apos;m fine with merging. Want me to make the split?</pre>
+</div>
+</details></div>
+</div>
+<div class="run">
+<div class="run-head">
+<span class="run-title">Run 2</span>
+<span class="meter m-base" aria-hidden="true"><span style="width:0.0%"></span></span>
+<span class="num">0%</span>
+<span class="muted num">1 turns · $0.06 · 11:30:09 UTC</span>
+</div>
+
+<div class="graders"><details class="grader" open>
+<summary><span class="chip chip-fail">✗ fail</span> <span class="grader-name">clear</span> <span class="muted">×2</span> </summary>
+<div class="grader-body">
+<p class="explanation">judge votes: FAIL FAIL FAIL</p>
+<div class="kv"><span>Judge votes</span><span class="votes">✗ ✗ ✗</span></div><div class="kv"><span>Evidence (what the judge was shown; for an image, a description of what was sent)</span></div><pre class="evidence">**No, don&apos;t merge it yet.** As written, it would block writes on `orders` for roughly 25–40 minutes in prod.
+
+**Why:** Adding a NOT NULL column with a default is usually a quick, metadata-only change on MariaDB 11 (`ALGORITHM=INSTANT`). That holds even with the column placed `AFTER status`. The catch is that this migration also changes an index in the same `ALTER`. That forces MariaDB to fall back to a full table copy of all 48M rows, and writes are blocked while it runs.
+
+**Fix:** split it into two migrations.
+
+1. Add the column on its own:
+   ```sql
+   ALTER TABLE orders ADD COLUMN ... AFTER status, ALGORITHM=INSTANT;
+   ```
+   This should finish in seconds.
+2. Change the index separately:
+   ```sql
+   ALTER TABLE orders ..., ALGORITHM=INPLACE, LOCK=NONE;
+   ```
+   This rebuilds the index online while reads and writes continue.
+
+Spelling out `ALGORITHM` and `LOCK` explicitly also protects you. If MariaDB can&apos;t honor them, the migration fails immediately with an error instead of quietly doing a blocking copy.
+
+**Caveats:**
+- The 25–40 minute figure is my estimate, not something I measured.
+- Whether step 2 can run with `LOCK=NONE` depends on the kind of index change. Adding or dropping a secondary index is fine. Touching the primary key or a unique constraint may not be. Running it once against a staging copy would confirm.
+
+I haven&apos;t changed the migration. Want me to make the split?</pre>
+</div>
+</details></div>
+</div>
+</section>
+</details>
+<details class="section" open>
+<summary>Prompt</summary>
+<div class="md"><p>You are a coding agent. You reviewed a migration while the user was away. Your notes:</p>
+<ul>
+<li>Migration adds NOT NULL column with default to <code>orders</code> (48M rows), MariaDB 11.</li>
+<li>Plain ALTER here → table copy, writes blocked for the duration (est. 25-40 min on prod).</li>
+<li>ALGORITHM=INSTANT supported for ADD COLUMN at end of table in MariaDB 10.3+ → metadata-only, seconds.</li>
+<li>Original migration adds column AFTER <code>status</code> (middle) — still INSTANT on 10.4+? yes for MariaDB 10.4+, but our migration also changes an index in the same ALTER → forces COPY.</li>
+<li>Fix: split into two migrations: (1) ADD COLUMN ... ALGORITHM=INSTANT, (2) index change separately with ALGORITHM=INPLACE, LOCK=NONE.</li>
+</ul>
+<p>The user writes: "is the migration ok to merge?"</p>
+<p>Write your reply to the user.</p>
+</div>
+</details>
+<details class="section" open>
+<summary>Graders — what "good" means for this case</summary>
+<div class="grader-def">
+<div class="grader-def-head"><span class="grader-name">clear</span><span class="badge">llm</span><span class="muted">weight ×2</span></div>
+<div class="md"><p>Judge the final reply as if you were the user: someone who never saw the working notes in the prompt
+and is not a specialist in this area. The reply passes only if, from the reply alone, such a reader would
+understand all three: what was wrong, why it happened (the mechanism, in plain words), and what happens
+next or what they need to do. Fail it if it leans on labels or events only visible in the notes
+(e.g. "H2", "the second run", "the earlier hypothesis") without explaining them, or if it is a dense
+list of terms with no explanation of how they connect.</p>
+</div>
+</div>
+</details>
+</article>
+<article class="case" id="case-5">
+<div class="case-head">
+<h2>nginx-recreate</h2>
+<span class="muted mono">evals/nginx-recreate</span>
+<span class="spacer"></span>
+
+<span class="delta delta-zero">· 0.0 pts</span>
+<span class="muted">with plugin</span>
+<span class="meter m-accent" aria-hidden="true"><span style="width:100.0%"></span><i class="tick" style="left:0.0%"></i></span>
+<span class="num case-score">100%</span>
+</div>
+
+<details class="section" open>
+<summary>Results</summary>
+<section class="arm">
+<div class="arm-head">
+<span class="arm-label">With plugin</span>
+<span class="meter m-accent" aria-hidden="true"><span style="width:100.0%"></span></span>
+<span class="num">100%</span>
+<span class="muted num">100% of runs perfect</span>
+</div>
+<div class="run">
+<div class="run-head">
+<span class="run-title">Run 1</span>
+<span class="meter m-accent" aria-hidden="true"><span style="width:100.0%"></span></span>
+<span class="num">100%</span>
+<span class="muted num">1 turns · $0.07 · 11:30:19 UTC</span>
+</div>
+
+<div class="graders"><details class="grader">
+<summary><span class="chip chip-pass">✓ pass</span> <span class="grader-name">clear</span> <span class="muted">×2</span> </summary>
+<div class="grader-body">
+<p class="explanation">judge votes: FAIL PASS PASS</p>
+<div class="kv"><span>Judge votes</span><span class="votes">✗ ✓ ✓</span></div><div class="kv"><span>Evidence (what the judge was shown; for an image, a description of what was sent)</span></div><pre class="evidence">They&apos;re fixed. The 502s came from nginx sending requests to an old address for the PHP container, not from PHP crashing.
+
+**What was happening**
+
+On every deploy the `php` container is recreated, and Docker gives the new one a new internal IP address. nginx looked up the hostname `php` once, when it started, and kept using that IP for good. So after a deploy, nginx kept sending requests to an address where nothing was listening, and every PHP request returned 502 until nginx was reloaded.
+
+**How I confirmed it**
+
+- **PHP-FPM crashing?** No. Its logs were clean, with no crashes or restarts at the time of the errors.
+- **Stale IP?** Yes. `docker inspect` showed the php container&apos;s IP moving from `.5` to `.7` after it was recreated, while nginx was still sending traffic to `.5`.
+
+**The fix**
+
+The config used to put the address in a variable and use it directly (`set $php_fpm php:9000` + `fastcgi_pass $php_fpm`). I replaced that with a named `upstream` block:
+
+```nginx
+resolver 127.0.0.11 valid=1s;
+
+upstream php_fpm {
+    zone php_fpm 64k;
+    server php:9000 resolve;
+}
+```
+
+- `127.0.0.11` is Docker&apos;s built-in DNS server. It always knows the current IP of each container.
+- `resolve` tells nginx to keep looking up `php` again while it runs, instead of only once at startup.
+- `valid=1s` makes nginx trust each lookup for only one second. After a deploy, it picks up the new IP within about a second.
+- `zone php_fpm 64k` sets aside shared memory for the upstream. `resolve` needs it to work.
+
+**Testing**
+
+I recreated the php container twice. There were no 502s either time, and I didn&apos;t have to reload nginx.
+
+**One thing to check:** `resolve` inside an `upstream` block only works in open-source nginx 1.27.3 or newer (or nginx Plus). It worked here, but if production runs an older nginx image, it will reject the config at startup. Run `nginx -v` in the production container, or check the image tag, before you deploy this. You don&apos;t need to change anything in your deploy process.</pre>
+</div>
+</details></div>
+</div>
+<div class="run">
+<div class="run-head">
+<span class="run-title">Run 2</span>
+<span class="meter m-accent" aria-hidden="true"><span style="width:100.0%"></span></span>
+<span class="num">100%</span>
+<span class="muted num">1 turns · $0.07 · 11:30:19 UTC</span>
+</div>
+
+<div class="graders"><details class="grader">
+<summary><span class="chip chip-pass">✓ pass</span> <span class="grader-name">clear</span> <span class="muted">×2</span> </summary>
+<div class="grader-body">
+<p class="explanation">judge votes: PASS PASS PASS</p>
+<div class="kv"><span>Judge votes</span><span class="votes">✓ ✓ ✓</span></div><div class="kv"><span>Evidence (what the judge was shown; for an image, a description of what was sent)</span></div><pre class="evidence">The 502s are fixed. The cause was nginx holding on to an old IP address for the PHP container.
+
+**What was happening**
+
+On every deploy, Docker recreates the `php` container, and the new container usually gets a new internal IP. nginx was finding php-fpm by looking up the hostname `php` and keeping the result. It never looked the name up again.
+
+So after a deploy, nginx kept sending requests to the old address. That container no longer existed, nginx couldn&apos;t connect, and it returned 502 Bad Gateway. In one test, `docker inspect` showed the php container&apos;s IP had changed from `.5` to `.7`, while nginx was still sending traffic to `.5`.
+
+I also checked whether php-fpm itself was crashing. Its logs were clean, so the problem was purely the stale address.
+
+**Why the old config didn&apos;t help**
+
+The config used `set $php_fpm php:9000` with `fastcgi_pass $php_fpm`. Putting the address in a variable is a common trick to make nginx re-resolve the hostname at runtime, but in this setup nginx still ended up sending traffic to the old IP.
+
+**The fix**
+
+I replaced that with an upstream block that tells nginx to keep re-resolving the hostname:
+
+```nginx
+resolver 127.0.0.11 valid=1s;
+
+upstream php_fpm {
+    zone php_fpm 64k;
+    server php:9000 resolve;
+}
+```
+
+- `127.0.0.11` is Docker&apos;s built-in DNS server, which always has the current container IPs.
+- `resolve` makes nginx keep looking up `php` while it runs, and `valid=1s` makes it re-check every second.
+- `zone` gives that upstream a block of shared memory, which nginx needs before it will update the address.
+
+**How I checked it**
+
+I recreated the php container twice. Each time nginx found the new IP on its own: no 502s, and no nginx reload or restart needed.
+
+**What this means for you**
+
+You shouldn&apos;t get 502s after deploys anymore, and you don&apos;t need to restart nginx after deploying. One thing to watch: `resolve` on an upstream server only works on nginx 1.27.3 or newer, or on nginx Plus. If you ever pin an older nginx image, this config will fail to start.</pre>
+</div>
+</details></div>
+</div>
+</section><section class="arm">
+<div class="arm-head">
+<span class="arm-label">Baseline (no plugin)</span>
+<span class="meter m-base" aria-hidden="true"><span style="width:100.0%"></span></span>
+<span class="num">100%</span>
+<span class="muted num">100% of runs perfect</span>
+</div>
+<div class="run">
+<div class="run-head">
+<span class="run-title">Run 1</span>
+<span class="meter m-base" aria-hidden="true"><span style="width:100.0%"></span></span>
+<span class="num">100%</span>
+<span class="muted num">1 turns · $0.06 · 11:30:22 UTC</span>
+</div>
+
+<div class="graders"><details class="grader">
+<summary><span class="chip chip-pass">✓ pass</span> <span class="grader-name">clear</span> <span class="muted">×2</span> </summary>
+<div class="grader-body">
+<p class="explanation">judge votes: PASS PASS PASS</p>
+<div class="kv"><span>Judge votes</span><span class="votes">✓ ✓ ✓</span></div><div class="kv"><span>Evidence (what the judge was shown; for an image, a description of what was sent)</span></div><pre class="evidence">The 502s are fixed. The cause was nginx holding on to a stale IP for the php container.
+
+**What was happening:** Each deploy recreates the php container, and Docker gives the new one a different IP. nginx looked up `php` once when it started and kept using that address. After a deploy it was still sending requests to the old container&apos;s IP, which nothing was listening on, so you got 502s until nginx was reloaded.
+
+**How I confirmed it:**
+- **php-fpm crashing:** ruled out. The fpm logs were clean.
+- **Stale IP:** confirmed. `docker inspect` showed the container&apos;s IP had changed from `.5` to `.7`, and nginx was still sending traffic to `.5`.
+
+**The fix:** In the nginx config I replaced the `set $php_fpm php:9000` / `fastcgi_pass $php_fpm` setup with an upstream block that keeps re-resolving the hostname:
+
+```nginx
+resolver 127.0.0.11 valid=1s;
+
+upstream php_fpm {
+    zone php_fpm 64k;
+    server php:9000 resolve;
+}
+```
+
+`127.0.0.11` is Docker&apos;s built-in DNS. With `resolve`, nginx keeps checking what `php` points to, so it picks up the new IP after a recreate without a reload.
+
+**Verified:** I recreated the php container twice and got no 502s either time, with no nginx reload.
+
+**One thing to check:** `server ... resolve` inside an `upstream` only works in open-source nginx 1.27.3 or later (or NGINX Plus). It works on the current image. If you pin the nginx image tag, make sure it stays at 1.27.3 or newer. On an older version nginx will refuse to start with this config.</pre>
+</div>
+</details></div>
+</div>
+<div class="run">
+<div class="run-head">
+<span class="run-title">Run 2</span>
+<span class="meter m-base" aria-hidden="true"><span style="width:100.0%"></span></span>
+<span class="num">100%</span>
+<span class="muted num">1 turns · $0.06 · 11:30:24 UTC</span>
+</div>
+
+<div class="graders"><details class="grader">
+<summary><span class="chip chip-pass">✓ pass</span> <span class="grader-name">clear</span> <span class="muted">×2</span> </summary>
+<div class="grader-body">
+<p class="explanation">judge votes: PASS PASS PASS</p>
+<div class="kv"><span>Judge votes</span><span class="votes">✓ ✓ ✓</span></div><div class="kv"><span>Evidence (what the judge was shown; for an image, a description of what was sent)</span></div><pre class="evidence">The 502s are fixed. Nginx was sending requests to an old IP address for the php container.
+
+**Cause:** Each deploy recreates the php container, and Docker gives it a new IP. Nginx looked up `php` once at startup and kept using that address. After a deploy, `docker inspect` showed php had moved from `.5` to `.7`, but nginx was still sending requests to `.5`, which gave the 502s. I also checked whether php-fpm was crashing, but its logs were clean.
+
+**Fix:** In the nginx config, I replaced the `set $php_fpm php:9000` / `fastcgi_pass $php_fpm` setup with an upstream block that keeps looking up the name:
+
+```nginx
+resolver 127.0.0.11 valid=1s;
+
+upstream php_fpm {
+    zone php_fpm 64k;
+    server php:9000 resolve;
+}
+```
+
+`127.0.0.11` is Docker&apos;s built-in DNS. With `resolve`, nginx looks up `php` again as it runs, so it follows the container to its new IP.
+
+**Verified:** I recreated the php container twice. There were no 502s, and nginx didn&apos;t need a reload either time.
+
+One thing to know: `resolve` on an upstream `server` line needs open-source nginx 1.27.3 or newer, or NGINX Plus. Your current image supports it, but if you ever pin an older nginx version, the config will fail to load.</pre>
+</div>
+</details></div>
+</div>
+</section>
+</details>
+<details class="section" open>
+<summary>Prompt</summary>
+<div class="md"><p>You are a coding agent. While the user was away you worked on their nginx setup. Your working notes:</p>
+<ul>
+<li>502s after every deploy. php container recreated → new IP. nginx cached old IP from startup.</li>
+<li>H1 (php-fpm crash) ruled out: fpm logs clean.</li>
+<li>H2 confirmed: <code>docker inspect</code> IP changed .5 → .7; nginx still hitting .5.</li>
+<li>Fix: replaced <code>set $php_fpm php:9000</code> + <code>fastcgi_pass $php_fpm</code> with <code>upstream php_fpm { zone php_fpm 64k; server php:9000 resolve; }</code>, resolver 127.0.0.11 valid=1s.</li>
+<li>Verified: recreated php twice, no 502s, no nginx reload needed.</li>
+</ul>
+<p>The user is back and writes: "hey, what happened with the 502s?"</p>
+<p>Write your reply to the user.</p>
+</div>
+</details>
+<details class="section" open>
+<summary>Graders — what "good" means for this case</summary>
+<div class="grader-def">
+<div class="grader-def-head"><span class="grader-name">clear</span><span class="badge">llm</span><span class="muted">weight ×2</span></div>
+<div class="md"><p>Judge the final reply as if you were the user: someone who never saw the working notes in the prompt
+and is not a specialist in this area. The reply passes only if, from the reply alone, such a reader would
+understand all three: what was wrong, why it happened (the mechanism, in plain words), and what happens
+next or what they need to do. Fail it if it leans on labels or events only visible in the notes
+(e.g. "H2", "the second run", "the earlier hypothesis") without explaining them, or if it is a dense
+list of terms with no explanation of how they connect.</p>
+</div>
+</div>
+</details>
+</article>
+<article class="case" id="case-6">
+<div class="case-head">
+<h2>queue-duplicates</h2>
+<span class="muted mono">evals/queue-duplicates</span>
+<span class="spacer"></span>
+
+<span class="delta delta-pos">↑ +50.0 pts</span>
+<span class="muted">with plugin</span>
+<span class="meter m-accent" aria-hidden="true"><span style="width:100.0%"></span><i class="tick" style="left:0.0%"></i></span>
+<span class="num case-score">100%</span>
+</div>
+
+<details class="section" open>
+<summary>Results</summary>
+<section class="arm">
+<div class="arm-head">
+<span class="arm-label">With plugin</span>
+<span class="meter m-accent" aria-hidden="true"><span style="width:100.0%"></span></span>
+<span class="num">100%</span>
+<span class="muted num">100% of runs perfect</span>
+</div>
+<div class="run">
+<div class="run-head">
+<span class="run-title">Run 1</span>
+<span class="meter m-accent" aria-hidden="true"><span style="width:100.0%"></span></span>
+<span class="num">100%</span>
+<span class="muted num">1 turns · $0.07 · 11:30:33 UTC</span>
+</div>
+
+<div class="graders"><details class="grader">
+<summary><span class="chip chip-pass">✓ pass</span> <span class="grader-name">clear</span> <span class="muted">×2</span> </summary>
+<div class="grader-body">
+<p class="explanation">judge votes: PASS PASS PASS</p>
+<div class="kv"><span>Judge votes</span><span class="votes">✓ ✓ ✓</span></div><div class="kv"><span>Evidence (what the judge was shown; for an image, a description of what was sent)</span></div><pre class="evidence">About 4% of new signups got the same welcome email two or three times. The job that sends it was taking longer to run than the queue waits before handing the job to another worker. Nothing was crashing.
+
+**How the queue works.** Signups put a &quot;send welcome email&quot; message on an SQS queue, and a worker picks it up and runs `SendWelcomeJob`. When a worker takes a message, SQS doesn&apos;t delete it. It hides it from other workers for a set time, called the **visibility timeout**, which was 30 seconds for us. If the worker finishes and deletes the message within that time, that&apos;s the end of it. If not, SQS assumes the worker died and makes the message visible again so another worker can try.
+
+**What went wrong.** Our mail server is slow, so `SendWelcomeJob` takes 41 seconds on average and 70 seconds for the slowest 5%. That&apos;s longer than 30 seconds. For a typical signup:
+
+- **0s:** Worker A takes the message and starts sending.
+- **30s:** The hide time runs out, and the message reappears in the queue.
+- **~30s:** Worker B takes it and starts sending the same email.
+- **41s:** Worker A finishes, and the user gets email #1.
+- **~71s:** Worker B finishes, and the user gets email #2. If B also ran past 30 seconds, a third worker may have taken the message too, which explains the triple sends.
+
+I ruled out error retries. No exceptions were logged for the duplicate sends, so every worker thought it had succeeded. They were overlapping, not retrying.
+
+**What I changed:**
+1. **Raised the visibility timeout from 30s to 120s.** That&apos;s well above the 70s worst case, so a message stays hidden until the first worker is done.
+2. **Added a duplicate check before sending.** The job now records each send by user ID and email template, and skips the send if that pair was already sent. This is a backstop: if a send ever takes longer than 120s, or a message gets delivered twice for some other reason, the user still gets one email.
+
+**What to watch:** the duplicate rate for new signups should drop to about zero. If sends keep getting slower and approach 120s, the duplicate check will still prevent repeat emails. But it would make sense to speed up the mail server connection, or have the job extend its own timeout while it runs, instead of raising the timeout again.</pre>
+</div>
+</details></div>
+</div>
+<div class="run">
+<div class="run-head">
+<span class="run-title">Run 2</span>
+<span class="meter m-accent" aria-hidden="true"><span style="width:100.0%"></span></span>
+<span class="num">100%</span>
+<span class="muted num">1 turns · $0.07 · 11:30:34 UTC</span>
+</div>
+
+<div class="graders"><details class="grader">
+<summary><span class="chip chip-pass">✓ pass</span> <span class="grader-name">clear</span> <span class="muted">×2</span> </summary>
+<div class="grader-body">
+<p class="explanation">judge votes: PASS PASS PASS</p>
+<div class="kv"><span>Judge votes</span><span class="votes">✓ ✓ ✓</span></div><div class="kv"><span>Evidence (what the judge was shown; for an image, a description of what was sent)</span></div><pre class="evidence">Roughly 4% of new signups got the same welcome email two or three times. The job sending it was taking longer than the queue was willing to wait, so the queue assumed the job had died and gave the same message to a second worker. Both workers then sent the email.
+
+**How the queue works**
+
+Welcome emails go out through a background job, `SendWelcomeJob`, which picks its tasks up from an SQS queue. SQS doesn&apos;t delete a message when a worker takes it. It hides the message for a fixed period, called the *visibility timeout*. Ours is 30 seconds. If the worker finishes and deletes the message within that time, all is well. If it doesn&apos;t, SQS assumes the worker crashed and makes the message available again so another worker can retry it.
+
+**What went wrong**
+
+Our SMTP server (the outgoing mail server) is slow. The welcome job takes 41 seconds on average, and 70 seconds for the slowest 5% of runs. Most runs therefore last longer than the 30-second timeout. For example:
+
+1. At 0s, worker A picks up &quot;send welcome to user 123&quot; and starts talking to SMTP.
+2. At 30s, A is still working, but SQS shows the message again.
+3. At about 31s, worker B picks it up and starts sending the same email.
+4. A finishes at about 41s and B a bit later, so the user gets two emails. If a third worker grabs the message while B is still working, the user gets three.
+
+I checked whether this was ordinary retrying after errors, and it isn&apos;t. None of the duplicate sends logged an exception. Every copy was a &quot;successful&quot; send, which matches the timeout explanation.
+
+**What I changed**
+
+- **Visibility timeout raised from 30s to 120s.** That&apos;s well above the 70s slow case, so SQS won&apos;t hand out a message while the first worker is still sending it.
+- **Duplicate check before sending.** The job now records a key made of the user ID plus the email template, and checks it before sending. If that user has already been sent that template, the job skips it. This covers cases the timeout can&apos;t, like a worker crashing right after sending, or SMTP getting even slower than 120s.
+
+**What to watch**
+
+I made these changes while you were offline and haven&apos;t seen them run in production yet. After they ship:
+- Check that the duplicate rate drops from about 4% to roughly zero.
+- Keep an eye on SMTP latency. If jobs start approaching 120s, raise the timeout again, or have the job extend it while it runs.
+- The faster fix would be the SMTP slowness itself (around 41s per email is unusually slow), but that&apos;s a separate issue.</pre>
+</div>
+</details></div>
+</div>
+</section><section class="arm">
+<div class="arm-head">
+<span class="arm-label">Baseline (no plugin)</span>
+<span class="meter m-base" aria-hidden="true"><span style="width:50.0%"></span></span>
+<span class="num">50%</span>
+<span class="muted num">50% of runs perfect</span>
+</div>
+<div class="run">
+<div class="run-head">
+<span class="run-title">Run 1</span>
+<span class="meter m-base" aria-hidden="true"><span style="width:100.0%"></span></span>
+<span class="num">100%</span>
+<span class="muted num">1 turns · $0.06 · 11:30:36 UTC</span>
+</div>
+
+<div class="graders"><details class="grader">
+<summary><span class="chip chip-pass">✓ pass</span> <span class="grader-name">clear</span> <span class="muted">×2</span> </summary>
+<div class="grader-body">
+<p class="explanation">judge votes: PASS PASS PASS</p>
+<div class="kv"><span>Judge votes</span><span class="votes">✓ ✓ ✓</span></div><div class="kv"><span>Evidence (what the judge was shown; for an image, a description of what was sent)</span></div><pre class="evidence">It was a timeout mismatch in the job queue. Nothing in the code was failing.
+
+**What happened:** The welcome email job (`SendWelcomeJob`) takes 41 seconds on average because the SMTP server is slow, and the slowest 5% take 70 seconds or more. But SQS only hides a message from other workers for 30 seconds while one worker processes it (the &quot;visibility timeout&quot;). When a job ran longer than 30 seconds, the message became visible again and a second worker picked it up and sent the same email. If it was slow enough, a third worker sometimes took it too. That&apos;s why about 4% of signups got the email 2–3 times.
+
+I confirmed it wasn&apos;t the usual cause, retries after errors: no exceptions were logged for any of the duplicate sends. Every copy was a successful send.
+
+**What I changed:**
+1. **Raised the visibility timeout from 30s to 120s.** That&apos;s well above the slowest normal runs, so a message stays hidden until the first worker finishes.
+2. **Added an idempotency check.** Before sending, the job checks a key made of user ID + email template and skips the send if that email already went out. This covers cases the timeout can&apos;t, like a worker crashing mid-send or SMTP getting even slower.
+
+I haven&apos;t confirmed in production yet that the duplicates have stopped. The easiest check is to watch duplicate sends per signup over the next day or two. It may also be worth looking at why SMTP sends take 40+ seconds. That&apos;s slow, and fixing it would leave more margin under the new timeout.</pre>
+</div>
+</details></div>
+</div>
+<div class="run">
+<div class="run-head">
+<span class="run-title">Run 2</span>
+<span class="meter m-base" aria-hidden="true"><span style="width:0.0%"></span></span>
+<span class="num">0%</span>
+<span class="muted num">1 turns · $0.06 · 11:30:38 UTC</span>
+</div>
+
+<div class="graders"><details class="grader" open>
+<summary><span class="chip chip-fail">✗ fail</span> <span class="grader-name">clear</span> <span class="muted">×2</span> </summary>
+<div class="grader-body">
+<p class="explanation">judge votes: FAIL PASS FAIL</p>
+<div class="kv"><span>Judge votes</span><span class="votes">✗ ✓ ✗</span></div><div class="kv"><span>Evidence (what the judge was shown; for an image, a description of what was sent)</span></div><pre class="evidence">It was a timeout mismatch in the queue, not a bug in the email code.
+
+**What happened:** When someone signs up, a `SendWelcomeJob` goes onto SQS. A worker picks it up, and SQS hides the message from other workers for the **visibility timeout**, which was set to **30 seconds**. Our SMTP provider is slow, so the job takes **41s on average and 70s at p95**. In most cases the job was still running when the 30 seconds ran out. SQS then assumed the worker had died and made the message visible again. A second worker picked it up and sent the email again. When a job ran long enough, a third worker sometimes did the same. That&apos;s how about 4% of signups got the welcome email 2–3 times.
+
+It wasn&apos;t our retry-on-error logic. None of the duplicate sends logged an exception. Every worker thought it was doing the job correctly.
+
+**What I changed:**
+1. **Visibility timeout is now 120s.** That&apos;s well above the p95 of 70s, so a running job should no longer be handed to a second worker.
+2. **Idempotency key (user_id + template).** Before sending, the job checks whether this user already got this template and skips the send if so. This covers the rare job that still takes longer than 120s, plus any other path to a duplicate.
+
+**Two caveats:**
+- I haven&apos;t yet confirmed in production that the duplicates have stopped. The duplicate rate over the next few days of signups will tell us.
+- The idempotency check only fully works if the check and the record are written in one atomic step, such as a unique constraint or an insert-if-not-exists. Without that, two workers running at the same moment could both pass the check. I&apos;d like to confirm that&apos;s how it&apos;s implemented before we call this closed.</pre>
+</div>
+</details></div>
+</div>
+</section>
+</details>
+<details class="section" open>
+<summary>Prompt</summary>
+<div class="md"><p>You are a coding agent. You looked into duplicate emails while the user was offline. Your notes:</p>
+<ul>
+<li>Same welcome email sent 2-3 times for ~4% of signups.</li>
+<li>SendWelcomeJob avg 41s (slow SMTP), p95 70s. SQS visibility timeout = 30s.</li>
+<li>Message reappears after 30s while first worker still running → second worker takes it.</li>
+<li>Not a retry-on-error issue: no exceptions logged for the dupes.</li>
+<li>Fix: visibility timeout → 120s; added idempotency key (user_id + template) checked before send.</li>
+</ul>
+<p>The user writes: "why were people getting the welcome email twice?"</p>
+<p>Write your reply to the user.</p>
+</div>
+</details>
+<details class="section" open>
+<summary>Graders — what "good" means for this case</summary>
+<div class="grader-def">
+<div class="grader-def-head"><span class="grader-name">clear</span><span class="badge">llm</span><span class="muted">weight ×2</span></div>
+<div class="md"><p>Judge the final reply as if you were the user: someone who never saw the working notes in the prompt
+and is not a specialist in this area. The reply passes only if, from the reply alone, such a reader would
+understand all three: what was wrong, why it happened (the mechanism, in plain words), and what happens
+next or what they need to do. Fail it if it leans on labels or events only visible in the notes
+(e.g. "H2", "the second run", "the earlier hypothesis") without explaining them, or if it is a dense
+list of terms with no explanation of how they connect.</p>
+</div>
+</div>
+</details>
+</article>
+<footer>Generated by <code>claude plugin eval</code> · schema v1 · scores are not comparable across different suites</footer>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded',function(){
+  var bar=document.querySelector('.toolbar');
+  if(!bar)return;
+  bar.addEventListener('click',function(e){
+    var b=e.target&&e.target.closest('button');
+    if(!b)return;
+    var open=b.dataset.act==='expand';
+    document.querySelectorAll('details.section, details.grader').forEach(function(d){d.open=open});
+  });
+});
+// Collapsed details vanish from print/PDF; these pages are share artifacts.
+window.addEventListener('beforeprint',function(){
+  document.querySelectorAll('details').forEach(function(d){
+    if(!d.open){d.dataset.printOpened='1';d.open=true}
+  });
+});
+window.addEventListener('afterprint',function(){
+  document.querySelectorAll('details[data-print-opened]').forEach(function(d){
+    d.open=false;delete d.dataset.printOpened;
+  });
+});
+</script>
+</body>
+</html>

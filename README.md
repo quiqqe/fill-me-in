@@ -14,12 +14,16 @@
 <p align="center">
   <img src="https://img.shields.io/github/stars/quiqqe/fill-me-in?style=flat-square&color=111111&label=stars" alt="Stars">
   <img src="https://img.shields.io/badge/claude%20code-plugin-111111?style=flat-square" alt="Claude Code plugin">
-  <img src="https://img.shields.io/badge/version-0.1.0-111111?style=flat-square" alt="Version 0.1.0">
+  <img src="https://img.shields.io/github/v/release/quiqqe/fill-me-in?style=flat-square&color=111111&label=release" alt="Release">
   <img src="https://img.shields.io/badge/license-MIT-111111?style=flat-square" alt="MIT license">
 </p>
 
 <p align="center">
   <strong>Situation first &middot; what, why, what to do &middot; depth that follows the conversation &middot; outranks "be brief" plugins</strong>
+</p>
+
+<p align="center">
+  <sub><a href="README.ru.md">Русский</a></sub>
 </p>
 
 ---
@@ -46,7 +50,19 @@ Same fix, with Fill Me In:
 >
 > **Example.** A deploy recreates app, its IP goes from .5 to .7, and within a second nginx sends traffic to .7. Before, you would restart nginx by hand.
 
-Not longer for the sake of it. Longer by exactly the context you missed.
+Not longer for the sake of it. Longer by exactly the context you missed. Real side-by-side replies from the eval run: [examples/](examples/).
+
+## Numbers
+
+Six scenarios where the agent reports on work you didn't see, each run 4 times with and without the plugin, graded by a Sonnet judge on one question: *would someone who never saw the work understand what was wrong, why, and what happens next?*
+
+| | with | without |
+|---|--:|--:|
+| mean score | **0.85** | 0.74 |
+| runs passing every grader | **19/24** | 15/24 |
+| words per reply | 380 | 251 |
+
+The gain sits where the default answer is terse (a flaky test, an "I don't get it" follow-up); on three cases the model already explains well and both arms score 1.00. Replies get ~50% longer. One honest miss: when the user is the expert, both arms still pile on caveats. Small suite, single-turn — method, per-case table and limitations in [evals/results](evals/results/README.md). Reproduce with `claude plugin eval . --judge-model sonnet`.
 
 ## How it works
 

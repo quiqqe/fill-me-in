@@ -1,0 +1,1038 @@
+{
+  "schemaVersion": 1,
+  "claudeVersion": "2.1.325",
+  "startedAt": "2026-11-14T11:28:56.510Z",
+  "durationSeconds": 118,
+  "costUsd": 1.6128603000000001,
+  "partial": false,
+  "suite": {
+    "root": "/Users/quiqqe/PhpstormProjects/fill-me-in",
+    "ablation": "with-without",
+    "threshold": 0,
+    "concurrency": 4,
+    "plugins": [
+      {
+        "name": "fill-me-in",
+        "version": "0.1.0",
+        "path": "/Users/quiqqe/PhpstormProjects/fill-me-in"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "name": "expert-no-overexplain",
+      "dir": "evals/expert-no-overexplain",
+      "source": "prose",
+      "promptMarkdown": "You are a coding agent. Your notes from a quick check:\n\n- SQS visibility timeout 30s, SendWelcomeJob p95 70s → message becomes visible again mid-processing → duplicates.\n- Raised visibility timeout to 120s, added idempotency key (user_id + template).\n\nThe user, who designed this queue setup, writes: \"visibility 30s vs job p95 70s, so redelivery mid-flight — confirm that's it, and what did you change?\"\n\nWrite your reply to the user.",
+      "runsPerCase": 2,
+      "timeoutSeconds": 300,
+      "maxTurns": 3,
+      "graders": [
+        {
+          "name": "clear",
+          "type": "llm",
+          "weight": 2,
+          "graderMarkdown": "Judge the final reply as if you were the user: someone who never saw the working notes in the prompt\nand is not a specialist in this area. The reply passes only if, from the reply alone, such a reader would\nunderstand all three: what was wrong, why it happened (the mechanism, in plain words), and what happens\nnext or what they need to do. Fail it if it leans on labels or events only visible in the notes\n(e.g. \"H2\", \"the second run\", \"the earlier hypothesis\") without explaining them, or if it is a dense\nlist of terms with no explanation of how they connect.",
+          "config": {
+            "criteria": "Judge the final reply as if you were the user: someone who never saw the working notes in the prompt\nand is not a specialist in this area. The reply passes only if, from the reply alone, such a reader would\nunderstand all three: what was wrong, why it happened (the mechanism, in plain words), and what happens\nnext or what they need to do. Fail it if it leans on labels or events only visible in the notes\n(e.g. \"H2\", \"the second run\", \"the earlier hypothesis\") without explaining them, or if it is a dense\nlist of terms with no explanation of how they connect.",
+            "focus": "last_message"
+          }
+        },
+        {
+          "name": "not_overexplained",
+          "type": "llm",
+          "weight": 1,
+          "graderMarkdown": "The user clearly knows SQS and visibility timeouts (they stated the mechanism themselves). Pass if the reply\nconfirms the cause and states the changes (120s visibility timeout, idempotency key on user_id + template)\nwithout explaining basic SQS concepts the user evidently already knows, such as what a visibility timeout is.\nFail if it spends sentences teaching the user the mechanism they just described.",
+          "config": {
+            "criteria": "The user clearly knows SQS and visibility timeouts (they stated the mechanism themselves). Pass if the reply\nconfirms the cause and states the changes (120s visibility timeout, idempotency key on user_id + template)\nwithout explaining basic SQS concepts the user evidently already knows, such as what a visibility timeout is.\nFail if it spends sentences teaching the user the mechanism they just described.",
+            "focus": "last_message"
+          }
+        }
+      ],
+      "arms": {
+        "with": [
+          {
+            "score": 0,
+            "passed": false,
+            "turns": 1,
+            "costUsd": 0.077029,
+            "judgeCostUsd": 0.004487,
+            "durationSeconds": 27,
+            "startedAt": "2026-11-14T11:28:56.544Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-dw5APs/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "clear",
+                "passed": false,
+                "weight": 2,
+                "explanation": "judge votes: FAIL FAIL FAIL",
+                "withOnly": false,
+                "scored": true,
+                "judgeVotes": [
+                  false,
+                  false,
+                  false
+                ],
+                "evidence": "Yes, that's the cause. The visibility timeout is 30s, but SendWelcomeJob's p95 runtime is 70s. So for a large share of jobs, the message becomes visible again while the first worker is still processing it. A second worker picks it up, and both send the welcome email.\n\nThat conclusion comes from comparing those two numbers in a quick check. I didn't trace individual duplicate sends back to redeliveries. If you want hard proof, look at `ApproximateReceiveCount` on the messages behind the duplicate emails. If it's above 1, and the second receive arrives about 30s after the first, that settles it.\n\n**What I changed:**\n\n1. **Visibility timeout: 30s → 120s.** That leaves about 50s of headroom over p95, so jobs of typical length no longer get redelivered. It doesn't cover the tail: any job slower than 120s will still be redelivered. I haven't looked at p99 or max. If the tail goes past 120s, there are two fixes. You can have the worker extend visibility with `ChangeMessageVisibility` while it runs. Or you can set the timeout from the observed max rather than from p95.\n\n2. **Idempotency key: `user_id + template`.** Before sending, the job checks whether that pair has already been sent and skips it if so. This is the real safety net, since SQS standard queues are at-least-once and can deliver duplicates even with a correct timeout. Two things are worth checking against your design:\n   - **Scope:** with this key, a user can only ever receive a given template once. That suits a welcome email. If anything is meant to resend it on purpose, like a \"resend welcome\" action, the key needs another part, such as a send ID.\n   - **Atomicity:** the key only prevents duplicates if it's claimed atomically before the send, with something like a conditional insert or unique constraint. A check-then-send with a gap in between still lets two concurrent workers both pass the check. Please confirm the storage behind it gives that guarantee.\n\nNext steps: check the receive counts to confirm, and pull p99/max for SendWelcomeJob to decide whether 120s is enough or whether the worker should extend visibility while it runs."
+              },
+              {
+                "name": "not_overexplained",
+                "passed": false,
+                "weight": 1,
+                "explanation": "judge votes: FAIL PASS FAIL",
+                "withOnly": false,
+                "scored": true,
+                "judgeVotes": [
+                  false,
+                  true,
+                  false
+                ],
+                "evidence": "Yes, that's the cause. The visibility timeout is 30s, but SendWelcomeJob's p95 runtime is 70s. So for a large share of jobs, the message becomes visible again while the first worker is still processing it. A second worker picks it up, and both send the welcome email.\n\nThat conclusion comes from comparing those two numbers in a quick check. I didn't trace individual duplicate sends back to redeliveries. If you want hard proof, look at `ApproximateReceiveCount` on the messages behind the duplicate emails. If it's above 1, and the second receive arrives about 30s after the first, that settles it.\n\n**What I changed:**\n\n1. **Visibility timeout: 30s → 120s.** That leaves about 50s of headroom over p95, so jobs of typical length no longer get redelivered. It doesn't cover the tail: any job slower than 120s will still be redelivered. I haven't looked at p99 or max. If the tail goes past 120s, there are two fixes. You can have the worker extend visibility with `ChangeMessageVisibility` while it runs. Or you can set the timeout from the observed max rather than from p95.\n\n2. **Idempotency key: `user_id + template`.** Before sending, the job checks whether that pair has already been sent and skips it if so. This is the real safety net, since SQS standard queues are at-least-once and can deliver duplicates even with a correct timeout. Two things are worth checking against your design:\n   - **Scope:** with this key, a user can only ever receive a given template once. That suits a welcome email. If anything is meant to resend it on purpose, like a \"resend welcome\" action, the key needs another part, such as a send ID.\n   - **Atomicity:** the key only prevents duplicates if it's claimed atomically before the send, with something like a conditional insert or unique constraint. A check-then-send with a gap in between still lets two concurrent workers both pass the check. Please confirm the storage behind it gives that guarantee.\n\nNext steps: check the receive counts to confirm, and pull p99/max for SendWelcomeJob to decide whether 120s is enough or whether the worker should extend visibility while it runs."
+              }
+            ]
+          },
+          {
+            "score": 0,
+            "passed": false,
+            "turns": 1,
+            "costUsd": 0.07608609999999999,
+            "judgeCostUsd": 0.0038201,
+            "durationSeconds": 25,
+            "startedAt": "2026-11-14T11:28:56.544Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-0qt3pX/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "clear",
+                "passed": false,
+                "weight": 2,
+                "explanation": "judge votes: FAIL FAIL FAIL",
+                "withOnly": false,
+                "scored": true,
+                "judgeVotes": [
+                  false,
+                  false,
+                  false
+                ],
+                "evidence": "Yes, that's the cause. The visibility timeout is 30s and `SendWelcomeJob` takes about 70s at p95. So for most slow jobs, SQS makes the message visible again while the first worker is still running. A second worker picks it up and sends the email again. Nothing fails, so the first worker still finishes and deletes the message, but by then the duplicate has already gone out.\n\nOne caveat: I matched timings from a quick check, not logs. I haven't confirmed that duplicate sends line up with `ApproximateReceiveCount > 1` on the same message ID. That's the check that would rule out another source of duplicates, such as the producer enqueuing twice.\n\n**What I changed:**\n\n1. **Visibility timeout: 30s → 120s.** That gives about 50s of headroom over p95, so a normal slow job finishes before the message reappears. It's a fixed number, though, so any job slower than 120s (the p99 tail, or a stuck SMTP call) will still be redelivered. If the tail goes past that, the sturdier fix is a heartbeat: the worker calls `ChangeMessageVisibility` every so often while it runs, so the timeout doesn't have to be set from p95.\n\n2. **Idempotency key: `user_id + template`.** Before sending, the job checks this key and skips the send if it's already recorded. This is the real fix, because SQS standard queues are at-least-once and will occasionally deliver twice even with a correct timeout. Two things are worth checking on your side, since they depend on how you want it to behave:\n   - **Scope:** this key means a user gets a given template at most once, ever (or for as long as the key is kept). That fits a welcome email. If any template is meant to be sent more than once, the key needs a per-event part, such as the signup event ID.\n   - **Atomicity:** the key has to be claimed in one atomic step *before* sending, like a conditional insert or `SET NX`. A separate read and then write still lets two concurrent workers both pass the check.\n\n**Suggested next steps:** look at your p99 and max for `SendWelcomeJob` to see whether 120s is enough or a heartbeat is needed, and do the receive-count check above to confirm redelivery was the only source of duplicates."
+              },
+              {
+                "name": "not_overexplained",
+                "passed": false,
+                "weight": 1,
+                "explanation": "judge votes: FAIL FAIL FAIL",
+                "withOnly": false,
+                "scored": true,
+                "judgeVotes": [
+                  false,
+                  false,
+                  false
+                ],
+                "evidence": "Yes, that's the cause. The visibility timeout is 30s and `SendWelcomeJob` takes about 70s at p95. So for most slow jobs, SQS makes the message visible again while the first worker is still running. A second worker picks it up and sends the email again. Nothing fails, so the first worker still finishes and deletes the message, but by then the duplicate has already gone out.\n\nOne caveat: I matched timings from a quick check, not logs. I haven't confirmed that duplicate sends line up with `ApproximateReceiveCount > 1` on the same message ID. That's the check that would rule out another source of duplicates, such as the producer enqueuing twice.\n\n**What I changed:**\n\n1. **Visibility timeout: 30s → 120s.** That gives about 50s of headroom over p95, so a normal slow job finishes before the message reappears. It's a fixed number, though, so any job slower than 120s (the p99 tail, or a stuck SMTP call) will still be redelivered. If the tail goes past that, the sturdier fix is a heartbeat: the worker calls `ChangeMessageVisibility` every so often while it runs, so the timeout doesn't have to be set from p95.\n\n2. **Idempotency key: `user_id + template`.** Before sending, the job checks this key and skips the send if it's already recorded. This is the real fix, because SQS standard queues are at-least-once and will occasionally deliver twice even with a correct timeout. Two things are worth checking on your side, since they depend on how you want it to behave:\n   - **Scope:** this key means a user gets a given template at most once, ever (or for as long as the key is kept). That fits a welcome email. If any template is meant to be sent more than once, the key needs a per-event part, such as the signup event ID.\n   - **Atomicity:** the key has to be claimed in one atomic step *before* sending, like a conditional insert or `SET NX`. A separate read and then write still lets two concurrent workers both pass the check.\n\n**Suggested next steps:** look at your p99 and max for `SendWelcomeJob` to see whether 120s is enough or a heartbeat is needed, and do the receive-count check above to confirm redelivery was the only source of duplicates."
+              }
+            ]
+          }
+        ],
+        "without": [
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 1,
+            "costUsd": 0.0617526,
+            "judgeCostUsd": 0.0039866,
+            "durationSeconds": 24,
+            "startedAt": "2026-11-14T11:28:56.544Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-N8F9Bv/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "clear",
+                "passed": true,
+                "weight": 2,
+                "explanation": "judge votes: PASS PASS PASS",
+                "withOnly": false,
+                "scored": true,
+                "judgeVotes": [
+                  true,
+                  true,
+                  true
+                ],
+                "evidence": "Yes, that's the cause. With a 30s visibility timeout and a SendWelcomeJob p95 of 70s, most slow jobs are still running when their message becomes visible again. A second worker then picks it up and sends the email again. My evidence is those two numbers side by side. I haven't reproduced it or matched specific duplicate sends to redelivered message IDs, so that check is still open if you want hard proof.\n\n**What I changed:**\n\n1. **Visibility timeout raised from 30s to 120s.** That covers p95 with room to spare. It doesn't cover the tail: I didn't look at p99 or max, so a job slower than 120s will still be redelivered.\n2. **Idempotency key on `user_id + template`.** A redelivered message for the same user and template is now skipped, so the tail case above doesn't produce a second email.\n\n**Points to check, since you know the intended behavior better than I do:**\n\n- **Key scope:** `user_id + template` blocks any second send of that template to that user, not just redeliveries. That's right for a welcome email. If anything ever needs to re-send it on purpose (re-onboarding, a resend button), that send will now be skipped too.\n- **Key timing:** If the key is recorded after the email goes out, two workers running at the same moment can both pass the check. If it's recorded before, a crash mid-send means the email never goes out. Tell me which trade-off you want and I'll confirm the code matches.\n- **Heartbeat alternative:** Instead of a fixed 120s, the worker could call `ChangeMessageVisibility` while the job runs to keep extending the timeout. That handles the tail without a long timeout, which otherwise delays retries after a real crash."
+              },
+              {
+                "name": "not_overexplained",
+                "passed": true,
+                "weight": 1,
+                "explanation": "judge votes: PASS PASS FAIL",
+                "withOnly": false,
+                "scored": true,
+                "judgeVotes": [
+                  true,
+                  true,
+                  false
+                ],
+                "evidence": "Yes, that's the cause. With a 30s visibility timeout and a SendWelcomeJob p95 of 70s, most slow jobs are still running when their message becomes visible again. A second worker then picks it up and sends the email again. My evidence is those two numbers side by side. I haven't reproduced it or matched specific duplicate sends to redelivered message IDs, so that check is still open if you want hard proof.\n\n**What I changed:**\n\n1. **Visibility timeout raised from 30s to 120s.** That covers p95 with room to spare. It doesn't cover the tail: I didn't look at p99 or max, so a job slower than 120s will still be redelivered.\n2. **Idempotency key on `user_id + template`.** A redelivered message for the same user and template is now skipped, so the tail case above doesn't produce a second email.\n\n**Points to check, since you know the intended behavior better than I do:**\n\n- **Key scope:** `user_id + template` blocks any second send of that template to that user, not just redeliveries. That's right for a welcome email. If anything ever needs to re-send it on purpose (re-onboarding, a resend button), that send will now be skipped too.\n- **Key timing:** If the key is recorded after the email goes out, two workers running at the same moment can both pass the check. If it's recorded before, a crash mid-send means the email never goes out. Tell me which trade-off you want and I'll confirm the code matches.\n- **Heartbeat alternative:** Instead of a fixed 120s, the worker could call `ChangeMessageVisibility` while the job runs to keep extending the timeout. That handles the tail without a long timeout, which otherwise delays retries after a real crash."
+              }
+            ]
+          },
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 1,
+            "costUsd": 0.0654507,
+            "judgeCostUsd": 0.0045727,
+            "durationSeconds": 28,
+            "startedAt": "2026-11-14T11:28:56.544Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-JaGewu/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "clear",
+                "passed": true,
+                "weight": 2,
+                "explanation": "judge votes: PASS FAIL PASS",
+                "withOnly": false,
+                "scored": true,
+                "judgeVotes": [
+                  true,
+                  false,
+                  true
+                ],
+                "evidence": "**Is that the cause?** Very likely, but I haven't proven it. The numbers fit: a 30s visibility timeout against a 70s p95 means most slow jobs become visible again while they're still running, and a second consumer picks them up. My check was based on that arithmetic, not on evidence from the duplicates themselves. To confirm it, look at a few duplicated welcome emails and check:\n- `ApproximateReceiveCount` is 2 or more on the message.\n- The second receive came about 30s after the first, while the first job was still running.\n\nIf the duplicates show a receive count of 1, or the second send has its own message ID, the cause is upstream (the job being enqueued twice), and these changes won't fully fix it.\n\n**What I changed:**\n1. **Visibility timeout raised from 30s to 120s.** This covers p95 with some margin. It doesn't cover the tail: jobs slower than 120s will still be redelivered. If p99 gets near that, the better fix is to have the worker extend visibility with `ChangeMessageVisibility` while it runs. Also, a failed message now waits up to 120s before a retry instead of 30s.\n2. **Idempotency key on `user_id + template`.** The job checks the key and skips the send if it's already recorded. Two things to know:\n   - The key covers every send of that template to that user, so a legitimate resend of the same template will also be blocked. For a welcome email that's probably what you want, but it's your decision.\n   - The check-and-record needs to be atomic, such as a conditional write or unique constraint claimed *before* sending. Otherwise two concurrent workers can both pass the check. Review that part of the diff before merging.\n\nThe idempotency key is worth keeping even after the timeout fix, because standard SQS can deliver a message more than once anyway."
+              },
+              {
+                "name": "not_overexplained",
+                "passed": true,
+                "weight": 1,
+                "explanation": "judge votes: PASS PASS FAIL",
+                "withOnly": false,
+                "scored": true,
+                "judgeVotes": [
+                  true,
+                  true,
+                  false
+                ],
+                "evidence": "**Is that the cause?** Very likely, but I haven't proven it. The numbers fit: a 30s visibility timeout against a 70s p95 means most slow jobs become visible again while they're still running, and a second consumer picks them up. My check was based on that arithmetic, not on evidence from the duplicates themselves. To confirm it, look at a few duplicated welcome emails and check:\n- `ApproximateReceiveCount` is 2 or more on the message.\n- The second receive came about 30s after the first, while the first job was still running.\n\nIf the duplicates show a receive count of 1, or the second send has its own message ID, the cause is upstream (the job being enqueued twice), and these changes won't fully fix it.\n\n**What I changed:**\n1. **Visibility timeout raised from 30s to 120s.** This covers p95 with some margin. It doesn't cover the tail: jobs slower than 120s will still be redelivered. If p99 gets near that, the better fix is to have the worker extend visibility with `ChangeMessageVisibility` while it runs. Also, a failed message now waits up to 120s before a retry instead of 30s.\n2. **Idempotency key on `user_id + template`.** The job checks the key and skips the send if it's already recorded. Two things to know:\n   - The key covers every send of that template to that user, so a legitimate resend of the same template will also be blocked. For a welcome email that's probably what you want, but it's your decision.\n   - The check-and-record needs to be atomic, such as a conditional write or unique constraint claimed *before* sending. Otherwise two concurrent workers can both pass the check. Review that part of the diff before merging.\n\nThe idempotency key is worth keeping even after the timeout fix, because standard SQS can deliver a message more than once anyway."
+              }
+            ]
+          }
+        ]
+      },
+      "aggregates": {
+        "score": 0,
+        "passRate": 0,
+        "scoreWithout": 1,
+        "passRateWithout": 1,
+        "delta": -1
+      }
+    },
+    {
+      "name": "fill-me-in-unclear",
+      "dir": "evals/fill-me-in-unclear",
+      "source": "prose",
+      "promptMarkdown": "Earlier in this conversation you told the user:\n\n\"Fixed: dropped `set $php_fpm`, moved to upstream with zone + resolve, valid=1s. Recreating php no longer needs a reload.\"\n\nThe user replies: \"I don't get it. What does that mean?\"\n\nWrite your reply to the user.",
+      "runsPerCase": 2,
+      "timeoutSeconds": 300,
+      "maxTurns": 3,
+      "graders": [
+        {
+          "name": "clear",
+          "type": "llm",
+          "weight": 2,
+          "graderMarkdown": "Judge the final reply as if you were the user: someone who never saw the working notes in the prompt\nand is not a specialist in this area. The reply passes only if, from the reply alone, such a reader would\nunderstand all three: what was wrong, why it happened (the mechanism, in plain words), and what happens\nnext or what they need to do. Fail it if it leans on labels or events only visible in the notes\n(e.g. \"H2\", \"the second run\", \"the earlier hypothesis\") without explaining them, or if it is a dense\nlist of terms with no explanation of how they connect.",
+          "config": {
+            "criteria": "Judge the final reply as if you were the user: someone who never saw the working notes in the prompt\nand is not a specialist in this area. The reply passes only if, from the reply alone, such a reader would\nunderstand all three: what was wrong, why it happened (the mechanism, in plain words), and what happens\nnext or what they need to do. Fail it if it leans on labels or events only visible in the notes\n(e.g. \"H2\", \"the second run\", \"the earlier hypothesis\") without explaining them, or if it is a dense\nlist of terms with no explanation of how they connect.",
+            "focus": "last_message"
+          }
+        },
+        {
+          "name": "gist_and_example",
+          "type": "llm",
+          "weight": 1,
+          "graderMarkdown": "Pass if the reply opens with the gist in plain words (nginx now picks up the new address of the recreated\ncontainer by itself, so no restart is needed), explains why the address changes and how nginx learns the\nnew one, and walks through a concrete step-by-step scenario. Fail if it mostly restates the original\nsentence with the same terms.",
+          "config": {
+            "criteria": "Pass if the reply opens with the gist in plain words (nginx now picks up the new address of the recreated\ncontainer by itself, so no restart is needed), explains why the address changes and how nginx learns the\nnew one, and walks through a concrete step-by-step scenario. Fail if it mostly restates the original\nsentence with the same terms.",
+            "focus": "last_message"
+          }
+        }
+      ],
+      "arms": {
+        "with": [
+          {
+            "score": 0.6666666666666666,
+            "passed": false,
+            "turns": 1,
+            "costUsd": 0.0855448,
+            "judgeCostUsd": 0.003930800000000002,
+            "durationSeconds": 29,
+            "startedAt": "2026-11-14T11:29:20.934Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-mNCOAe/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "clear",
+                "passed": true,
+                "weight": 2,
+                "explanation": "judge votes: PASS PASS PASS",
+                "withOnly": false,
+                "scored": true,
+                "judgeVotes": [
+                  true,
+                  true,
+                  true
+                ],
+                "evidence": "Sorry, that was too compressed. Here's the full version.\n\n**The problem we were fixing**\n\nnginx doesn't run PHP itself. It forwards each PHP request to the PHP-FPM container, which it reaches by the hostname `php` on port 9000. In Docker, that name points to the container's internal IP address. When you recreate the `php` container (for example with `docker compose up -d --force-recreate php`, or after a rebuild), it usually gets a **new IP**.\n\nnginx looks up `php` once, when it starts, and keeps using that IP. After a recreate it kept sending requests to the old address, where nothing was listening anymore. You got **502 Bad Gateway** errors until you reloaded or restarted nginx, which made it look up the name again.\n\n**What the old config did**\n\nIt had `set $php_fpm php:9000;` and then `fastcgi_pass $php_fpm;`. Putting the address in a variable is an old trick that makes nginx look up the name at request time instead of only at startup. It works, but it's fragile. It needs a separate `resolver` line pointing at Docker's DNS server, it silently falls back to \"look up once\" if someone removes the variable, and it can't use a proper upstream block.\n\n**What I changed it to**\n\n```nginx\nresolver 127.0.0.11 valid=1s;   # Docker's built-in DNS\n\nupstream php_fpm {\n    zone php_fpm 64k;           # shared memory nginx needs to store the IP it looks up\n    server php:9000 resolve;    # keep checking this name for IP changes\n}\n\n# ...\nfastcgi_pass php_fpm;\n```\n\n- **`upstream` + `resolve`**: this is the built-in way to tell nginx \"this backend's IP can change, keep checking it.\" nginx re-checks the name in the background and switches to the new IP on its own.\n- **`zone`**: `resolve` only works if the upstream has a shared memory zone. That's where nginx stores the current IP so all its worker processes see the update.\n- **`valid=1s`**: nginx trusts a lookup for at most 1 second before checking again. After a recreate, nginx picks up the new IP within about a second.\n\n**What this means for you**\n\nYou can recreate or rebuild the `php` container and the site keeps working. You no longer need to run `nginx -s reload` or restart nginx. At most, requests in the first second or so might fail while the new container starts.\n\nOne requirement: `resolve` in an `upstream` block needs nginx **1.27.3 or newer** (in older free versions it only existed in the paid NGINX Plus). If your nginx image is older, nginx will refuse to start with an error about `resolve`. Updating the image tag fixes that."
+              },
+              {
+                "name": "gist_and_example",
+                "passed": false,
+                "weight": 1,
+                "explanation": "judge votes: FAIL FAIL FAIL",
+                "withOnly": false,
+                "scored": true,
+                "judgeVotes": [
+                  false,
+                  false,
+                  false
+                ],
+                "evidence": "Sorry, that was too compressed. Here's the full version.\n\n**The problem we were fixing**\n\nnginx doesn't run PHP itself. It forwards each PHP request to the PHP-FPM container, which it reaches by the hostname `php` on port 9000. In Docker, that name points to the container's internal IP address. When you recreate the `php` container (for example with `docker compose up -d --force-recreate php`, or after a rebuild), it usually gets a **new IP**.\n\nnginx looks up `php` once, when it starts, and keeps using that IP. After a recreate it kept sending requests to the old address, where nothing was listening anymore. You got **502 Bad Gateway** errors until you reloaded or restarted nginx, which made it look up the name again.\n\n**What the old config did**\n\nIt had `set $php_fpm php:9000;` and then `fastcgi_pass $php_fpm;`. Putting the address in a variable is an old trick that makes nginx look up the name at request time instead of only at startup. It works, but it's fragile. It needs a separate `resolver` line pointing at Docker's DNS server, it silently falls back to \"look up once\" if someone removes the variable, and it can't use a proper upstream block.\n\n**What I changed it to**\n\n```nginx\nresolver 127.0.0.11 valid=1s;   # Docker's built-in DNS\n\nupstream php_fpm {\n    zone php_fpm 64k;           # shared memory nginx needs to store the IP it looks up\n    server php:9000 resolve;    # keep checking this name for IP changes\n}\n\n# ...\nfastcgi_pass php_fpm;\n```\n\n- **`upstream` + `resolve`**: this is the built-in way to tell nginx \"this backend's IP can change, keep checking it.\" nginx re-checks the name in the background and switches to the new IP on its own.\n- **`zone`**: `resolve` only works if the upstream has a shared memory zone. That's where nginx stores the current IP so all its worker processes see the update.\n- **`valid=1s`**: nginx trusts a lookup for at most 1 second before checking again. After a recreate, nginx picks up the new IP within about a second.\n\n**What this means for you**\n\nYou can recreate or rebuild the `php` container and the site keeps working. You no longer need to run `nginx -s reload` or restart nginx. At most, requests in the first second or so might fail while the new container starts.\n\nOne requirement: `resolve` in an `upstream` block needs nginx **1.27.3 or newer** (in older free versions it only existed in the paid NGINX Plus). If your nginx image is older, nginx will refuse to start with an error about `resolve`. Updating the image tag fixes that."
+              }
+            ]
+          },
+          {
+            "score": 0.6666666666666666,
+            "passed": false,
+            "turns": 1,
+            "costUsd": 0.0787408,
+            "judgeCostUsd": 0.0037668000000000016,
+            "durationSeconds": 26,
+            "startedAt": "2026-11-14T11:29:21.520Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-aKNmkl/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "clear",
+                "passed": true,
+                "weight": 2,
+                "explanation": "judge votes: PASS PASS PASS",
+                "withOnly": false,
+                "scored": true,
+                "judgeVotes": [
+                  true,
+                  true,
+                  true
+                ],
+                "evidence": "Here's what that message meant, without the shorthand.\n\n## The problem\n\nnginx sits in front of your PHP container (PHP-FPM) and forwards PHP requests to it at the hostname `php`. When you recreate the `php` container, Docker usually gives it a new IP address.\n\nBy default, nginx looks up `php` once, at startup, and keeps using that IP until it's reloaded. So after you recreated the container, nginx kept sending requests to the old address, where nothing is listening anymore. Your site returned errors (typically 502 Bad Gateway) until someone ran `nginx -s reload` or restarted nginx.\n\n## What I changed\n\n**1. Removed `set $php_fpm ...`.** That was a common workaround. If you put the address in a variable (`set $php_fpm php:9000;` then `fastcgi_pass $php_fpm;`), nginx looks the name up again at request time instead of once at startup. It works, but it's a hack: you lose the normal upstream features, and it's easy to get subtly wrong.\n\n**2. Replaced it with an `upstream` block** set up to re-resolve the name on its own:\n\n```nginx\nresolver 127.0.0.11 valid=1s;   # Docker's internal DNS; trust each answer for 1 second\n\nupstream php_fpm {\n    zone php_fpm 64k;            # shared memory so the resolved IP can be updated live\n    server php:9000 resolve;     # keep re-looking-up \"php\" instead of only at startup\n}\n\n# ...\nfastcgi_pass php_fpm;\n```\n\n- `resolve` tells nginx to keep checking what IP `php` points to while it runs.\n- `zone` is required for `resolve`. It gives nginx a shared memory area where it can swap in the new IP without reloading.\n- `valid=1s` means nginx trusts each DNS answer for only 1 second before asking again, so it notices a new IP almost immediately.\n\n## What this means for you\n\nYou can now run something like `docker compose up -d --force-recreate php` and nginx picks up the new container by itself within about a second. You no longer need to reload or restart nginx afterward.\n\nOne requirement: `resolve` inside an `upstream` block needs open-source nginx 1.27.3 or newer (older versions only had it in the paid NGINX Plus). If your nginx image is older, it will refuse to start with an error about `resolve`. In that case, update the image (e.g. `nginx:stable` or `nginx:mainline`)."
+              },
+              {
+                "name": "gist_and_example",
+                "passed": false,
+                "weight": 1,
+                "explanation": "judge votes: FAIL FAIL FAIL",
+                "withOnly": false,
+                "scored": true,
+                "judgeVotes": [
+                  false,
+                  false,
+                  false
+                ],
+                "evidence": "Here's what that message meant, without the shorthand.\n\n## The problem\n\nnginx sits in front of your PHP container (PHP-FPM) and forwards PHP requests to it at the hostname `php`. When you recreate the `php` container, Docker usually gives it a new IP address.\n\nBy default, nginx looks up `php` once, at startup, and keeps using that IP until it's reloaded. So after you recreated the container, nginx kept sending requests to the old address, where nothing is listening anymore. Your site returned errors (typically 502 Bad Gateway) until someone ran `nginx -s reload` or restarted nginx.\n\n## What I changed\n\n**1. Removed `set $php_fpm ...`.** That was a common workaround. If you put the address in a variable (`set $php_fpm php:9000;` then `fastcgi_pass $php_fpm;`), nginx looks the name up again at request time instead of once at startup. It works, but it's a hack: you lose the normal upstream features, and it's easy to get subtly wrong.\n\n**2. Replaced it with an `upstream` block** set up to re-resolve the name on its own:\n\n```nginx\nresolver 127.0.0.11 valid=1s;   # Docker's internal DNS; trust each answer for 1 second\n\nupstream php_fpm {\n    zone php_fpm 64k;            # shared memory so the resolved IP can be updated live\n    server php:9000 resolve;     # keep re-looking-up \"php\" instead of only at startup\n}\n\n# ...\nfastcgi_pass php_fpm;\n```\n\n- `resolve` tells nginx to keep checking what IP `php` points to while it runs.\n- `zone` is required for `resolve`. It gives nginx a shared memory area where it can swap in the new IP without reloading.\n- `valid=1s` means nginx trusts each DNS answer for only 1 second before asking again, so it notices a new IP almost immediately.\n\n## What this means for you\n\nYou can now run something like `docker compose up -d --force-recreate php` and nginx picks up the new container by itself within about a second. You no longer need to reload or restart nginx afterward.\n\nOne requirement: `resolve` inside an `upstream` block needs open-source nginx 1.27.3 or newer (older versions only had it in the paid NGINX Plus). If your nginx image is older, it will refuse to start with an error about `resolve`. In that case, update the image (e.g. `nginx:stable` or `nginx:mainline`)."
+              }
+            ]
+          }
+        ],
+        "without": [
+          {
+            "score": 0.6666666666666666,
+            "passed": false,
+            "turns": 1,
+            "costUsd": 0.0637718,
+            "judgeCostUsd": 0.004277800000000001,
+            "durationSeconds": 26,
+            "startedAt": "2026-11-14T11:29:23.330Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-HQPJ5k/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "clear",
+                "passed": true,
+                "weight": 2,
+                "explanation": "judge votes: PASS PASS PASS",
+                "withOnly": false,
+                "scored": true,
+                "judgeVotes": [
+                  true,
+                  true,
+                  true
+                ],
+                "evidence": "Sorry, that was too much shorthand. Here's what it means in plain terms.\n\n**The problem:** nginx passes PHP requests to your `php` container. It finds that container by name, and Docker turns the name into an IP address. nginx looked the name up once, at startup, and kept using that address. When you recreated the `php` container, it usually got a new IP. nginx kept sending requests to the old one, so you got errors (typically 502 Bad Gateway) until you reloaded nginx.\n\n**The fix:** I changed the config so nginx looks the container's name up again while it's running, instead of only at startup:\n\n- **Removed `set $php_fpm`:** that was the old workaround, putting the address in a variable to force fresh lookups. It's no longer needed.\n- **Added an `upstream` block with `zone` and `resolve`:** this is nginx's built-in way to say \"this backend's address can change, keep checking it.\" The `zone` part is required for this to work.\n- **Set `valid=1s`:** nginx re-checks the address at most once per second. After a recreate, it picks up the new IP within about a second.\n\n**What this means for you:** you can recreate or restart the `php` container whenever you like. You no longer need to reload or restart nginx afterwards.\n\nOne requirement: `resolve` inside an `upstream` block only works on nginx 1.27.3 or newer, or on nginx Plus. If your nginx is older, it will refuse to start with this config. I can check your version if you're not sure."
+              },
+              {
+                "name": "gist_and_example",
+                "passed": false,
+                "weight": 1,
+                "explanation": "judge votes: FAIL FAIL FAIL",
+                "withOnly": false,
+                "scored": true,
+                "judgeVotes": [
+                  false,
+                  false,
+                  false
+                ],
+                "evidence": "Sorry, that was too much shorthand. Here's what it means in plain terms.\n\n**The problem:** nginx passes PHP requests to your `php` container. It finds that container by name, and Docker turns the name into an IP address. nginx looked the name up once, at startup, and kept using that address. When you recreated the `php` container, it usually got a new IP. nginx kept sending requests to the old one, so you got errors (typically 502 Bad Gateway) until you reloaded nginx.\n\n**The fix:** I changed the config so nginx looks the container's name up again while it's running, instead of only at startup:\n\n- **Removed `set $php_fpm`:** that was the old workaround, putting the address in a variable to force fresh lookups. It's no longer needed.\n- **Added an `upstream` block with `zone` and `resolve`:** this is nginx's built-in way to say \"this backend's address can change, keep checking it.\" The `zone` part is required for this to work.\n- **Set `valid=1s`:** nginx re-checks the address at most once per second. After a recreate, it picks up the new IP within about a second.\n\n**What this means for you:** you can recreate or restart the `php` container whenever you like. You no longer need to reload or restart nginx afterwards.\n\nOne requirement: `resolve` inside an `upstream` block only works on nginx 1.27.3 or newer, or on nginx Plus. If your nginx is older, it will refuse to start with this config. I can check your version if you're not sure."
+              }
+            ]
+          },
+          {
+            "score": 0.6666666666666666,
+            "passed": false,
+            "turns": 1,
+            "costUsd": 0.059767600000000004,
+            "judgeCostUsd": 0.0031376000000000017,
+            "durationSeconds": 20,
+            "startedAt": "2026-11-14T11:29:24.759Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-eer6Ai/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "clear",
+                "passed": true,
+                "weight": 2,
+                "explanation": "judge votes: PASS PASS PASS",
+                "withOnly": false,
+                "scored": true,
+                "judgeVotes": [
+                  true,
+                  true,
+                  true
+                ],
+                "evidence": "Sorry, that was too terse. Here's what was going on and what I changed.\n\n**The problem:** nginx forwards PHP requests to your `php` container. It finds that container by its name (`php`), which Docker turns into an IP address. When you recreate the `php` container, it usually gets a **new IP address**. nginx had looked up the old address and kept using it, so requests went nowhere (you'd see 502 errors) until you reloaded or restarted nginx.\n\n**The old workaround:** the config stored the address in a variable (`set $php_fpm ...`). That's a common trick to make nginx look the name up again, but it has quirks and is easy to get subtly wrong.\n\n**What I changed:**\n- **Removed the variable trick.**\n- **Defined the PHP backend in an `upstream` block** (a named group of backend servers). I marked the server with `resolve`, which tells nginx to keep re-checking what IP the name `php` points to. The `zone` line gives nginx some shared memory to store that address so it can update it while running.\n- **Set `valid=1s`** on the DNS resolver, so nginx re-checks the address every second.\n\n**What this means for you:** you can now run something like `docker compose up -d --force-recreate php`, and nginx will find the new container within about a second. You no longer need to reload or restart nginx.\n\nOne caveat: `resolve` inside an `upstream` block needs nginx 1.27.3 or newer (older versions only had it in the paid NGINX Plus). If your nginx image is older, it will refuse to start with an error about `resolve`. In that case, tell me and I'll pin a newer image or switch to a different approach."
+              },
+              {
+                "name": "gist_and_example",
+                "passed": false,
+                "weight": 1,
+                "explanation": "judge votes: FAIL FAIL FAIL",
+                "withOnly": false,
+                "scored": true,
+                "judgeVotes": [
+                  false,
+                  false,
+                  false
+                ],
+                "evidence": "Sorry, that was too terse. Here's what was going on and what I changed.\n\n**The problem:** nginx forwards PHP requests to your `php` container. It finds that container by its name (`php`), which Docker turns into an IP address. When you recreate the `php` container, it usually gets a **new IP address**. nginx had looked up the old address and kept using it, so requests went nowhere (you'd see 502 errors) until you reloaded or restarted nginx.\n\n**The old workaround:** the config stored the address in a variable (`set $php_fpm ...`). That's a common trick to make nginx look the name up again, but it has quirks and is easy to get subtly wrong.\n\n**What I changed:**\n- **Removed the variable trick.**\n- **Defined the PHP backend in an `upstream` block** (a named group of backend servers). I marked the server with `resolve`, which tells nginx to keep re-checking what IP the name `php` points to. The `zone` line gives nginx some shared memory to store that address so it can update it while running.\n- **Set `valid=1s`** on the DNS resolver, so nginx re-checks the address every second.\n\n**What this means for you:** you can now run something like `docker compose up -d --force-recreate php`, and nginx will find the new container within about a second. You no longer need to reload or restart nginx.\n\nOne caveat: `resolve` inside an `upstream` block needs nginx 1.27.3 or newer (older versions only had it in the paid NGINX Plus). If your nginx image is older, it will refuse to start with an error about `resolve`. In that case, tell me and I'll pin a newer image or switch to a different approach."
+              }
+            ]
+          }
+        ]
+      },
+      "aggregates": {
+        "score": 0.6666666666666666,
+        "passRate": 0,
+        "scoreWithout": 0.6666666666666666,
+        "passRateWithout": 0,
+        "delta": 0
+      }
+    },
+    {
+      "name": "flaky-timezone-test",
+      "dir": "evals/flaky-timezone-test",
+      "source": "prose",
+      "promptMarkdown": "You are a coding agent. You investigated a flaky test while the user was in a meeting. Your notes:\n\n- `ReportPeriodTest::testMonthlyTotals` fails ~1/3 of CI runs, always passes locally.\n- Fails only when CI starts after 21:00 UTC. App tz Europe/Moscow (UTC+3) → date already next day in app tz.\n- Fixture uses time() for created_at, assertion uses fixed '2026-10' month. Near midnight records land in Nov.\n- Fix: fixture now uses explicit timestamps inside 2026-10 in app tz. Ran with faketime 23:30 UTC ×20 → green.\n\nThe user writes: \"so was it a real bug or just CI being weird?\"\n\nWrite your reply to the user.",
+      "runsPerCase": 2,
+      "timeoutSeconds": 300,
+      "maxTurns": 3,
+      "graders": [
+        {
+          "name": "clear",
+          "type": "llm",
+          "weight": 2,
+          "graderMarkdown": "Judge the final reply as if you were the user: someone who never saw the working notes in the prompt\nand is not a specialist in this area. The reply passes only if, from the reply alone, such a reader would\nunderstand all three: what was wrong, why it happened (the mechanism, in plain words), and what happens\nnext or what they need to do. Fail it if it leans on labels or events only visible in the notes\n(e.g. \"H2\", \"the second run\", \"the earlier hypothesis\") without explaining them, or if it is a dense\nlist of terms with no explanation of how they connect.",
+          "config": {
+            "criteria": "Judge the final reply as if you were the user: someone who never saw the working notes in the prompt\nand is not a specialist in this area. The reply passes only if, from the reply alone, such a reader would\nunderstand all three: what was wrong, why it happened (the mechanism, in plain words), and what happens\nnext or what they need to do. Fail it if it leans on labels or events only visible in the notes\n(e.g. \"H2\", \"the second run\", \"the earlier hypothesis\") without explaining them, or if it is a dense\nlist of terms with no explanation of how they connect.",
+            "focus": "last_message"
+          }
+        }
+      ],
+      "arms": {
+        "with": [
+          {
+            "score": 0,
+            "passed": false,
+            "turns": 1,
+            "costUsd": 0.0727769,
+            "judgeCostUsd": 0.0023349000000000026,
+            "durationSeconds": 24,
+            "startedAt": "2026-11-14T11:29:45.182Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-Lfha9k/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "clear",
+                "passed": false,
+                "weight": 2,
+                "explanation": "judge votes: PASS FAIL FAIL",
+                "withOnly": false,
+                "scored": true,
+                "judgeVotes": [
+                  true,
+                  false,
+                  false
+                ],
+                "evidence": "It was a real bug, but in the test, not in the app. CI wasn't misbehaving. It just exposed the problem by running at certain hours.\n\n**Why it failed:** `ReportPeriodTest::testMonthlyTotals` creates some records and then checks the totals for October 2026 (`'2026-10'`).\n- **The month in the check is fixed.** The test always looks for October 2026.\n- **The records' dates are not fixed.** The test stamps them with the current time (`time()`).\n- **Month is decided in Moscow time.** The app's timezone is Europe/Moscow, which is UTC+3. So once it's past 21:00 UTC, the app treats a record's date as the next day.\n\nFor example, a CI run at 23:30 UTC on Oct 31 is already 02:30 on Nov 1 in Moscow. The app correctly files those records under November, so the October total comes back empty and the test fails. Any run after 21:00 UTC is affected the same way: the records just land on \"tomorrow,\" and they move to a new month whenever that tomorrow starts one. That's why it failed on only some CI runs. It always passed for you locally because you weren't running it in that late-evening window. (The month is wrong on most days anyway: today is Nov 14, so `time()` is already outside October. Since the test still passes on most runs, the date check is apparently looser than \"exact month.\" Either way, nothing about the test pinned the dates, so the result depended on when it ran.)\n\n**What I changed:** the test now creates its records with fixed timestamps that fall inside October 2026 in Moscow time, so the result no longer depends on when the test runs. To check it, I faked the clock to 23:30 UTC, the exact case that used to fail, and ran the test 20 times. All 20 passed.\n\n**What this means for you:**\n- The reporting code is fine. Grouping by month in the app's timezone is the correct behavior, and the test was simply set up wrong.\n- The fix only touches the test, so it should be quick to review and merge.\n- It might be worth checking other tests for the same pattern: data stamped with \"now\" and then compared against a fixed date. Any of them could fail the same way. I only looked at this one test."
+              }
+            ]
+          },
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 1,
+            "costUsd": 0.0705123,
+            "judgeCostUsd": 0.001106300000000001,
+            "durationSeconds": 15,
+            "startedAt": "2026-11-14T11:29:47.397Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-Skx6ZL/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "clear",
+                "passed": true,
+                "weight": 2,
+                "explanation": "judge votes: PASS PASS PASS",
+                "withOnly": false,
+                "scored": true,
+                "judgeVotes": [
+                  true,
+                  true,
+                  true
+                ],
+                "evidence": "It was a real bug, but in the test, not in the app. CI wasn't being random.\n\n**What was happening.** `ReportPeriodTest::testMonthlyTotals` creates some records and then checks that they're counted in the monthly totals for October 2026. The test set each record's `created_at` to the current time (`time()`), but the assertion always looked at the fixed month `'2026-10'`. The app groups records by month in its own timezone, Europe/Moscow, which is 3 hours ahead of UTC.\n\nSo the result depended on when the test ran:\n\n- **CI job starts at 15:00 UTC:** it's 18:00 in Moscow on the same day, the records land in the expected month, and the test passes.\n- **CI job starts at 21:30 UTC:** it's already 00:30 the next day in Moscow. Near the end of a month, that pushes the records into the next month (for example November instead of October), the October totals come up short, and the test fails.\n\n**Why it looked flaky.** The failures were always CI jobs that started after 21:00 UTC, and that's roughly the 1-in-3 rate you saw. It always passed locally because nobody runs tests locally in that late-evening UTC window. That timing was the only cause; nothing about CI itself was unreliable.\n\n**What it means for the app.** As far as I could tell, the reporting code is behaving correctly: grouping by month in the app's own timezone is the right thing to do. The bug was that the test depended on the current clock. I didn't go looking for timezone problems in the production code beyond what this test touches.\n\n**The fix.** The test now creates its records with fixed timestamps that sit inside October 2026 in Moscow time, so the current time no longer matters. To check it, I faked the clock to 23:30 UTC (the window that used to fail) and ran the test 20 times. All 20 passed.\n\n**What to do.** Review and merge the fixture change. Other tests that use `time()` or \"now\" and then assert against a fixed date could fail the same way, and it would be worth searching for them. I haven't done that search yet; I can do it if you'd like."
+              }
+            ]
+          }
+        ],
+        "without": [
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 1,
+            "costUsd": 0.0584721,
+            "judgeCostUsd": 0.0018341000000000017,
+            "durationSeconds": 18,
+            "startedAt": "2026-11-14T11:29:49.440Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-EEPNAq/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "clear",
+                "passed": true,
+                "weight": 2,
+                "explanation": "judge votes: PASS PASS PASS",
+                "withOnly": false,
+                "scored": true,
+                "judgeVotes": [
+                  true,
+                  true,
+                  true
+                ],
+                "evidence": "It was a real bug, but in the test, not in the app. CI wasn't being random.\n\nThe test fixture stamped records with the current time (`time()`), but the assertion always checked a fixed month, `2026-10`. The app runs on Moscow time (UTC+3), so whenever CI started after 21:00 UTC, it was already the next day in the app's timezone. Near the end of the month, those records fell into November and the October totals came out wrong. That's why it failed about a third of the time on CI and never on your machine, since you probably don't run tests late at night UTC.\n\nThe app's month grouping was doing the right thing. It put records into the correct month for Moscow time. The test just assumed \"now\" would always be in October.\n\n**Fix:** the fixture now uses fixed timestamps that fall inside October 2026 in the app's timezone, so the test no longer depends on when it runs. I faked the clock to 23:30 UTC and ran it 20 times, and all 20 passed.\n\nIt might be worth checking other tests for the same pattern: fixtures built from the current time compared against fixed dates. I haven't searched for those yet."
+              }
+            ]
+          },
+          {
+            "score": 0,
+            "passed": false,
+            "turns": 1,
+            "costUsd": 0.05502510000000001,
+            "judgeCostUsd": 0.0010071000000000004,
+            "durationSeconds": 12,
+            "startedAt": "2026-11-14T11:29:50.031Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-v7qL0O/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "clear",
+                "passed": false,
+                "weight": 2,
+                "explanation": "judge votes: FAIL FAIL PASS",
+                "withOnly": false,
+                "scored": true,
+                "judgeVotes": [
+                  false,
+                  false,
+                  true
+                ],
+                "evidence": "It was a real bug, but in the test, not in the app code. CI wasn't being weird.\n\n**What happened:** the fixture set `created_at` to the current time (`time()`), but the assertion always checked for the fixed month `2026-10`. The app runs in Europe/Moscow (UTC+3). So when a CI run started after 21:00 UTC, it was already the next day in app time. Near the end of the month, the records landed in November and the October totals came out wrong.\n\n**Why it only failed on CI:** it depended on what time the run started, so it failed about a third of the time there. Locally you were probably always running it during normal hours, so it never failed.\n\n**Fix:** the fixture now uses explicit timestamps inside October 2026 in app time, so it no longer depends on when the test runs. To check it, I faked the clock to 23:30 UTC and ran the test 20 times. It passed every time.\n\n**One thing I didn't check:** whether the reporting code itself handles that same UTC-vs-Moscow boundary correctly. The test was wrong, but this shows the boundary is easy to get wrong. If you want, I can look at how the report code assigns records to months, or add a test with a record at 23:30 UTC on the last day of a month."
+              }
+            ]
+          }
+        ]
+      },
+      "aggregates": {
+        "score": 0.5,
+        "passRate": 0.5,
+        "scoreWithout": 0.5,
+        "passRateWithout": 0.5,
+        "delta": 0
+      }
+    },
+    {
+      "name": "migration-lock",
+      "dir": "evals/migration-lock",
+      "source": "prose",
+      "promptMarkdown": "You are a coding agent. You reviewed a migration while the user was away. Your notes:\n\n- Migration adds NOT NULL column with default to `orders` (48M rows), MariaDB 11.\n- Plain ALTER here → table copy, writes blocked for the duration (est. 25-40 min on prod).\n- ALGORITHM=INSTANT supported for ADD COLUMN at end of table in MariaDB 10.3+ → metadata-only, seconds.\n- Original migration adds column AFTER `status` (middle) — still INSTANT on 10.4+? yes for MariaDB 10.4+, but our migration also changes an index in the same ALTER → forces COPY.\n- Fix: split into two migrations: (1) ADD COLUMN ... ALGORITHM=INSTANT, (2) index change separately with ALGORITHM=INPLACE, LOCK=NONE.\n\nThe user writes: \"is the migration ok to merge?\"\n\nWrite your reply to the user.",
+      "runsPerCase": 2,
+      "timeoutSeconds": 300,
+      "maxTurns": 3,
+      "graders": [
+        {
+          "name": "clear",
+          "type": "llm",
+          "weight": 2,
+          "graderMarkdown": "Judge the final reply as if you were the user: someone who never saw the working notes in the prompt\nand is not a specialist in this area. The reply passes only if, from the reply alone, such a reader would\nunderstand all three: what was wrong, why it happened (the mechanism, in plain words), and what happens\nnext or what they need to do. Fail it if it leans on labels or events only visible in the notes\n(e.g. \"H2\", \"the second run\", \"the earlier hypothesis\") without explaining them, or if it is a dense\nlist of terms with no explanation of how they connect.",
+          "config": {
+            "criteria": "Judge the final reply as if you were the user: someone who never saw the working notes in the prompt\nand is not a specialist in this area. The reply passes only if, from the reply alone, such a reader would\nunderstand all three: what was wrong, why it happened (the mechanism, in plain words), and what happens\nnext or what they need to do. Fail it if it leans on labels or events only visible in the notes\n(e.g. \"H2\", \"the second run\", \"the earlier hypothesis\") without explaining them, or if it is a dense\nlist of terms with no explanation of how they connect.",
+            "focus": "last_message"
+          }
+        }
+      ],
+      "arms": {
+        "with": [
+          {
+            "score": 0,
+            "passed": false,
+            "turns": 1,
+            "costUsd": 0.07637740000000001,
+            "judgeCostUsd": 0.0008113999999999986,
+            "durationSeconds": 18,
+            "startedAt": "2026-11-14T11:30:02.194Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-iyyuV6/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "clear",
+                "passed": false,
+                "weight": 2,
+                "explanation": "judge votes: FAIL FAIL FAIL",
+                "withOnly": false,
+                "scored": true,
+                "judgeVotes": [
+                  false,
+                  false,
+                  false
+                ],
+                "evidence": "**Not as written.** It would block writes to `orders` for roughly half an hour in production. The fix is small: split it into two migrations.\n\n## What the migration does\n\nIt adds a new `NOT NULL` column with a default value to `orders`, placed after `status`. In the same `ALTER TABLE` statement, it also changes an index. `orders` has about 48M rows, and we're on MariaDB 11.\n\n## Why that's a problem\n\nMariaDB can run an `ALTER TABLE` in a few ways:\n\n- **INSTANT:** it only updates the table's definition (metadata) and doesn't touch the rows. It takes seconds whatever the table size. Adding a column, including one in the middle via `AFTER status`, qualifies on MariaDB 10.4+.\n- **INPLACE with `LOCK=NONE`:** it rebuilds an index in the background while reads and writes keep working. Index changes usually qualify.\n- **COPY:** it builds a full new copy of the table row by row, then swaps it in. Writes are blocked the whole time.\n\nOne `ALTER` statement runs with a single algorithm, so it has to use the one that works for every change in it. The column on its own would be INSTANT. Combined with the index change in this migration, MariaDB falls back to COPY. On 48M rows I estimate 25–40 minutes of blocked writes on `orders`, which means new orders would fail or pile up for that whole window.\n\n## What to do\n\nSplit it into two migrations:\n\n1. **Add the column:** `ALTER TABLE orders ADD COLUMN ... AFTER status, ALGORITHM=INSTANT;`\n2. **Change the index separately:** `ALTER TABLE orders ..., ALGORITHM=INPLACE, LOCK=NONE;`\n\nWrite the `ALGORITHM` and `LOCK` clauses out explicitly. Without them, MariaDB silently picks COPY when it can't do better. With them, it refuses with an error instead. So if I'm wrong about something, the migration fails right away rather than locking the table.\n\nA couple of caveats:\n\n- The index migration doesn't block writes, but it still takes a while on a table this size and adds some I/O load. Running it at a quieter time is a good idea.\n- Both statements briefly need an exclusive lock on the table's definition (a metadata lock) at the start and end. If a long-running query or transaction is open on `orders` at that moment, the `ALTER` waits behind it, and new queries queue up behind the `ALTER`. Make sure nothing long-running is open on `orders` when you run them.\n\nI haven't run either statement against a prod-sized copy. If there's a staging database with realistic data, try both there first. The explicit clauses will make it obvious if either can't run the way I expect.\n\nOnce it's split, it's fine to merge."
+              }
+            ]
+          },
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 1,
+            "costUsd": 0.07439570000000001,
+            "judgeCostUsd": 0.0005936999999999991,
+            "durationSeconds": 17,
+            "startedAt": "2026-11-14T11:30:02.376Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-lABv2g/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "clear",
+                "passed": true,
+                "weight": 2,
+                "explanation": "judge votes: PASS FAIL PASS",
+                "withOnly": false,
+                "scored": true,
+                "judgeVotes": [
+                  true,
+                  false,
+                  true
+                ],
+                "evidence": "**Not as written. It would lock the `orders` table for writes for roughly 25–40 minutes in production. The fix is small: split it into two migrations.**\n\n## What the migration does\n\nIt makes two changes to `orders` (about 48M rows, MariaDB 11) in a single `ALTER TABLE`:\n\n1. It adds a new `NOT NULL` column with a default value, placed `AFTER status` (in the middle of the table, not at the end).\n2. It changes an index.\n\n## Why it's a problem\n\nMariaDB can run an `ALTER TABLE` in different ways (the \"algorithm\"):\n\n- **INSTANT:** only the table's metadata changes. It finishes in seconds no matter how many rows there are. MariaDB 10.4+ can add a column this way even in the middle of the table, and even with `NOT NULL DEFAULT`, so on its own the new column would be fine.\n- **INPLACE with LOCK=NONE:** the table is rebuilt in the background while reads and writes keep working.\n- **COPY:** MariaDB builds a full new copy of the table row by row and blocks writes until it finishes.\n\nIn a single `ALTER`, MariaDB has to use one algorithm for the whole statement, and it picks one that every change supports. The index change can't be done INSTANT, so the whole statement falls back to COPY. On 48M rows I estimate 25–40 minutes with no writes to `orders`. In practice, that means order creation and updates fail or hang for that long.\n\n## What to do\n\nSplit it into two migrations:\n\n1. `ALTER TABLE orders ADD COLUMN ... AFTER status, ALGORITHM=INSTANT;`\n2. `ALTER TABLE orders <index change>, ALGORITHM=INPLACE, LOCK=NONE;`\n\nWrite `ALGORITHM` and `LOCK` explicitly. If MariaDB can't honor them, it stops with an error instead of quietly falling back to a blocking copy. A failed deploy is much better than a 30-minute outage.\n\nThe second migration still rebuilds the index across 48M rows, so it will take a while and add load. But writes keep working, so it's safe to run during normal traffic. Off-peak hours are still better.\n\n## What I did and didn't check\n\nAll of this comes from reading the migration and checking MariaDB's documented behavior. I didn't run it against a production-sized copy, so the 25–40 minute figure is an estimate. If you have a staging database with realistic data, run both new migrations there before merging to confirm they finish quickly and don't block writes."
+              }
+            ]
+          }
+        ],
+        "without": [
+          {
+            "score": 0,
+            "passed": false,
+            "turns": 1,
+            "costUsd": 0.06140109999999999,
+            "judgeCostUsd": 0.000819099999999998,
+            "durationSeconds": 16,
+            "startedAt": "2026-11-14T11:30:07.119Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-mU9ti7/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "clear",
+                "passed": false,
+                "weight": 2,
+                "explanation": "judge votes: PASS FAIL FAIL",
+                "withOnly": false,
+                "scored": true,
+                "judgeVotes": [
+                  true,
+                  false,
+                  false
+                ],
+                "evidence": "**Not as written.** It would lock writes on `orders` for roughly 25–40 minutes in prod.\n\n**Why:** The migration adds the NOT NULL column with a default *and* changes an index in the same `ALTER`. Adding the column on its own could be instant on MariaDB 11, even in the middle of the table (`AFTER status`). Bundling the index change into the same statement makes MariaDB fall back to a full table copy. That means rewriting all 48M rows with writes blocked the whole time.\n\n**Fix:** Split it into two migrations.\n\n1. **Add the column, metadata-only (seconds):**\n   ```sql\n   ALTER TABLE orders\n     ADD COLUMN <col> <type> NOT NULL DEFAULT <value> AFTER status,\n     ALGORITHM=INSTANT;\n   ```\n2. **Change the index separately, online:**\n   ```sql\n   ALTER TABLE orders\n     <index change>,\n     ALGORITHM=INPLACE, LOCK=NONE;\n   ```\n   This one still takes a while to build, but reads and writes keep working during it. It only needs a brief metadata lock at the start and end.\n\nSpelling out `ALGORITHM` and `LOCK` matters. If MariaDB can't do the operation that way, the statement fails immediately instead of quietly doing a blocking copy. So if something's off, you get an error in staging rather than an outage in prod.\n\n**Caveats:**\n- I haven't run this against a prod-sized copy. It's worth running both steps on staging first to confirm that neither one errors out.\n- Long-running transactions on `orders` can stall even the instant `ALTER` while it waits for the metadata lock, and other queries queue up behind it. Run it at a quiet time, or set a short `lock_wait_timeout`.\n\nOnce it's split this way, I'm fine with merging. Want me to make the split?"
+              }
+            ]
+          },
+          {
+            "score": 0,
+            "passed": false,
+            "turns": 1,
+            "costUsd": 0.0601241,
+            "judgeCostUsd": 0.0007820999999999974,
+            "durationSeconds": 15,
+            "startedAt": "2026-11-14T11:30:09.675Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-Q0raB0/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "clear",
+                "passed": false,
+                "weight": 2,
+                "explanation": "judge votes: FAIL FAIL FAIL",
+                "withOnly": false,
+                "scored": true,
+                "judgeVotes": [
+                  false,
+                  false,
+                  false
+                ],
+                "evidence": "**No, don't merge it yet.** As written, it would block writes on `orders` for roughly 25–40 minutes in prod.\n\n**Why:** Adding a NOT NULL column with a default is usually a quick, metadata-only change on MariaDB 11 (`ALGORITHM=INSTANT`). That holds even with the column placed `AFTER status`. The catch is that this migration also changes an index in the same `ALTER`. That forces MariaDB to fall back to a full table copy of all 48M rows, and writes are blocked while it runs.\n\n**Fix:** split it into two migrations.\n\n1. Add the column on its own:\n   ```sql\n   ALTER TABLE orders ADD COLUMN ... AFTER status, ALGORITHM=INSTANT;\n   ```\n   This should finish in seconds.\n2. Change the index separately:\n   ```sql\n   ALTER TABLE orders ..., ALGORITHM=INPLACE, LOCK=NONE;\n   ```\n   This rebuilds the index online while reads and writes continue.\n\nSpelling out `ALGORITHM` and `LOCK` explicitly also protects you. If MariaDB can't honor them, the migration fails immediately with an error instead of quietly doing a blocking copy.\n\n**Caveats:**\n- The 25–40 minute figure is my estimate, not something I measured.\n- Whether step 2 can run with `LOCK=NONE` depends on the kind of index change. Adding or dropping a secondary index is fine. Touching the primary key or a unique constraint may not be. Running it once against a staging copy would confirm.\n\nI haven't changed the migration. Want me to make the split?"
+              }
+            ]
+          }
+        ]
+      },
+      "aggregates": {
+        "score": 0.5,
+        "passRate": 0.5,
+        "scoreWithout": 0,
+        "passRateWithout": 0,
+        "delta": 0.5
+      }
+    },
+    {
+      "name": "nginx-recreate",
+      "dir": "evals/nginx-recreate",
+      "source": "prose",
+      "promptMarkdown": "You are a coding agent. While the user was away you worked on their nginx setup. Your working notes:\n\n- 502s after every deploy. php container recreated → new IP. nginx cached old IP from startup.\n- H1 (php-fpm crash) ruled out: fpm logs clean.\n- H2 confirmed: `docker inspect` IP changed .5 → .7; nginx still hitting .5.\n- Fix: replaced `set $php_fpm php:9000` + `fastcgi_pass $php_fpm` with `upstream php_fpm { zone php_fpm 64k; server php:9000 resolve; }`, resolver 127.0.0.11 valid=1s.\n- Verified: recreated php twice, no 502s, no nginx reload needed.\n\nThe user is back and writes: \"hey, what happened with the 502s?\"\n\nWrite your reply to the user.",
+      "runsPerCase": 2,
+      "timeoutSeconds": 300,
+      "maxTurns": 3,
+      "graders": [
+        {
+          "name": "clear",
+          "type": "llm",
+          "weight": 2,
+          "graderMarkdown": "Judge the final reply as if you were the user: someone who never saw the working notes in the prompt\nand is not a specialist in this area. The reply passes only if, from the reply alone, such a reader would\nunderstand all three: what was wrong, why it happened (the mechanism, in plain words), and what happens\nnext or what they need to do. Fail it if it leans on labels or events only visible in the notes\n(e.g. \"H2\", \"the second run\", \"the earlier hypothesis\") without explaining them, or if it is a dense\nlist of terms with no explanation of how they connect.",
+          "config": {
+            "criteria": "Judge the final reply as if you were the user: someone who never saw the working notes in the prompt\nand is not a specialist in this area. The reply passes only if, from the reply alone, such a reader would\nunderstand all three: what was wrong, why it happened (the mechanism, in plain words), and what happens\nnext or what they need to do. Fail it if it leans on labels or events only visible in the notes\n(e.g. \"H2\", \"the second run\", \"the earlier hypothesis\") without explaining them, or if it is a dense\nlist of terms with no explanation of how they connect.",
+            "focus": "last_message"
+          }
+        }
+      ],
+      "arms": {
+        "with": [
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 1,
+            "costUsd": 0.07092280000000001,
+            "judgeCostUsd": 0.0006727999999999977,
+            "durationSeconds": 15,
+            "startedAt": "2026-11-14T11:30:19.078Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-uP4hoO/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "clear",
+                "passed": true,
+                "weight": 2,
+                "explanation": "judge votes: FAIL PASS PASS",
+                "withOnly": false,
+                "scored": true,
+                "judgeVotes": [
+                  false,
+                  true,
+                  true
+                ],
+                "evidence": "They're fixed. The 502s came from nginx sending requests to an old address for the PHP container, not from PHP crashing.\n\n**What was happening**\n\nOn every deploy the `php` container is recreated, and Docker gives the new one a new internal IP address. nginx looked up the hostname `php` once, when it started, and kept using that IP for good. So after a deploy, nginx kept sending requests to an address where nothing was listening, and every PHP request returned 502 until nginx was reloaded.\n\n**How I confirmed it**\n\n- **PHP-FPM crashing?** No. Its logs were clean, with no crashes or restarts at the time of the errors.\n- **Stale IP?** Yes. `docker inspect` showed the php container's IP moving from `.5` to `.7` after it was recreated, while nginx was still sending traffic to `.5`.\n\n**The fix**\n\nThe config used to put the address in a variable and use it directly (`set $php_fpm php:9000` + `fastcgi_pass $php_fpm`). I replaced that with a named `upstream` block:\n\n```nginx\nresolver 127.0.0.11 valid=1s;\n\nupstream php_fpm {\n    zone php_fpm 64k;\n    server php:9000 resolve;\n}\n```\n\n- `127.0.0.11` is Docker's built-in DNS server. It always knows the current IP of each container.\n- `resolve` tells nginx to keep looking up `php` again while it runs, instead of only once at startup.\n- `valid=1s` makes nginx trust each lookup for only one second. After a deploy, it picks up the new IP within about a second.\n- `zone php_fpm 64k` sets aside shared memory for the upstream. `resolve` needs it to work.\n\n**Testing**\n\nI recreated the php container twice. There were no 502s either time, and I didn't have to reload nginx.\n\n**One thing to check:** `resolve` inside an `upstream` block only works in open-source nginx 1.27.3 or newer (or nginx Plus). It worked here, but if production runs an older nginx image, it will reject the config at startup. Run `nginx -v` in the production container, or check the image tag, before you deploy this. You don't need to change anything in your deploy process."
+              }
+            ]
+          },
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 1,
+            "costUsd": 0.0718251,
+            "judgeCostUsd": 0.0008550999999999975,
+            "durationSeconds": 14,
+            "startedAt": "2026-11-14T11:30:19.706Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-9SlCnN/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "clear",
+                "passed": true,
+                "weight": 2,
+                "explanation": "judge votes: PASS PASS PASS",
+                "withOnly": false,
+                "scored": true,
+                "judgeVotes": [
+                  true,
+                  true,
+                  true
+                ],
+                "evidence": "The 502s are fixed. The cause was nginx holding on to an old IP address for the PHP container.\n\n**What was happening**\n\nOn every deploy, Docker recreates the `php` container, and the new container usually gets a new internal IP. nginx was finding php-fpm by looking up the hostname `php` and keeping the result. It never looked the name up again.\n\nSo after a deploy, nginx kept sending requests to the old address. That container no longer existed, nginx couldn't connect, and it returned 502 Bad Gateway. In one test, `docker inspect` showed the php container's IP had changed from `.5` to `.7`, while nginx was still sending traffic to `.5`.\n\nI also checked whether php-fpm itself was crashing. Its logs were clean, so the problem was purely the stale address.\n\n**Why the old config didn't help**\n\nThe config used `set $php_fpm php:9000` with `fastcgi_pass $php_fpm`. Putting the address in a variable is a common trick to make nginx re-resolve the hostname at runtime, but in this setup nginx still ended up sending traffic to the old IP.\n\n**The fix**\n\nI replaced that with an upstream block that tells nginx to keep re-resolving the hostname:\n\n```nginx\nresolver 127.0.0.11 valid=1s;\n\nupstream php_fpm {\n    zone php_fpm 64k;\n    server php:9000 resolve;\n}\n```\n\n- `127.0.0.11` is Docker's built-in DNS server, which always has the current container IPs.\n- `resolve` makes nginx keep looking up `php` while it runs, and `valid=1s` makes it re-check every second.\n- `zone` gives that upstream a block of shared memory, which nginx needs before it will update the address.\n\n**How I checked it**\n\nI recreated the php container twice. Each time nginx found the new IP on its own: no 502s, and no nginx reload or restart needed.\n\n**What this means for you**\n\nYou shouldn't get 502s after deploys anymore, and you don't need to restart nginx after deploying. One thing to watch: `resolve` on an upstream server only works on nginx 1.27.3 or newer, or on nginx Plus. If you ever pin an older nginx image, this config will fail to start."
+              }
+            ]
+          }
+        ],
+        "without": [
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 1,
+            "costUsd": 0.0584343,
+            "judgeCostUsd": 0.0013082999999999984,
+            "durationSeconds": 16,
+            "startedAt": "2026-11-14T11:30:22.893Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-3qgwPd/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "clear",
+                "passed": true,
+                "weight": 2,
+                "explanation": "judge votes: PASS PASS PASS",
+                "withOnly": false,
+                "scored": true,
+                "judgeVotes": [
+                  true,
+                  true,
+                  true
+                ],
+                "evidence": "The 502s are fixed. The cause was nginx holding on to a stale IP for the php container.\n\n**What was happening:** Each deploy recreates the php container, and Docker gives the new one a different IP. nginx looked up `php` once when it started and kept using that address. After a deploy it was still sending requests to the old container's IP, which nothing was listening on, so you got 502s until nginx was reloaded.\n\n**How I confirmed it:**\n- **php-fpm crashing:** ruled out. The fpm logs were clean.\n- **Stale IP:** confirmed. `docker inspect` showed the container's IP had changed from `.5` to `.7`, and nginx was still sending traffic to `.5`.\n\n**The fix:** In the nginx config I replaced the `set $php_fpm php:9000` / `fastcgi_pass $php_fpm` setup with an upstream block that keeps re-resolving the hostname:\n\n```nginx\nresolver 127.0.0.11 valid=1s;\n\nupstream php_fpm {\n    zone php_fpm 64k;\n    server php:9000 resolve;\n}\n```\n\n`127.0.0.11` is Docker's built-in DNS. With `resolve`, nginx keeps checking what `php` points to, so it picks up the new IP after a recreate without a reload.\n\n**Verified:** I recreated the php container twice and got no 502s either time, with no nginx reload.\n\n**One thing to check:** `server ... resolve` inside an `upstream` only works in open-source nginx 1.27.3 or later (or NGINX Plus). It works on the current image. If you pin the nginx image tag, make sure it stays at 1.27.3 or newer. On an older version nginx will refuse to start with this config."
+              }
+            ]
+          },
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 1,
+            "costUsd": 0.057393,
+            "judgeCostUsd": 0.0008669999999999997,
+            "durationSeconds": 12,
+            "startedAt": "2026-11-14T11:30:24.493Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-kJG9AP/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "clear",
+                "passed": true,
+                "weight": 2,
+                "explanation": "judge votes: PASS PASS PASS",
+                "withOnly": false,
+                "scored": true,
+                "judgeVotes": [
+                  true,
+                  true,
+                  true
+                ],
+                "evidence": "The 502s are fixed. Nginx was sending requests to an old IP address for the php container.\n\n**Cause:** Each deploy recreates the php container, and Docker gives it a new IP. Nginx looked up `php` once at startup and kept using that address. After a deploy, `docker inspect` showed php had moved from `.5` to `.7`, but nginx was still sending requests to `.5`, which gave the 502s. I also checked whether php-fpm was crashing, but its logs were clean.\n\n**Fix:** In the nginx config, I replaced the `set $php_fpm php:9000` / `fastcgi_pass $php_fpm` setup with an upstream block that keeps looking up the name:\n\n```nginx\nresolver 127.0.0.11 valid=1s;\n\nupstream php_fpm {\n    zone php_fpm 64k;\n    server php:9000 resolve;\n}\n```\n\n`127.0.0.11` is Docker's built-in DNS. With `resolve`, nginx looks up `php` again as it runs, so it follows the container to its new IP.\n\n**Verified:** I recreated the php container twice. There were no 502s, and nginx didn't need a reload either time.\n\nOne thing to know: `resolve` on an upstream `server` line needs open-source nginx 1.27.3 or newer, or NGINX Plus. Your current image supports it, but if you ever pin an older nginx version, the config will fail to load."
+              }
+            ]
+          }
+        ]
+      },
+      "aggregates": {
+        "score": 1,
+        "passRate": 1,
+        "scoreWithout": 1,
+        "passRateWithout": 1,
+        "delta": 0
+      }
+    },
+    {
+      "name": "queue-duplicates",
+      "dir": "evals/queue-duplicates",
+      "source": "prose",
+      "promptMarkdown": "You are a coding agent. You looked into duplicate emails while the user was offline. Your notes:\n\n- Same welcome email sent 2-3 times for ~4% of signups.\n- SendWelcomeJob avg 41s (slow SMTP), p95 70s. SQS visibility timeout = 30s.\n- Message reappears after 30s while first worker still running → second worker takes it.\n- Not a retry-on-error issue: no exceptions logged for the dupes.\n- Fix: visibility timeout → 120s; added idempotency key (user_id + template) checked before send.\n\nThe user writes: \"why were people getting the welcome email twice?\"\n\nWrite your reply to the user.",
+      "runsPerCase": 2,
+      "timeoutSeconds": 300,
+      "maxTurns": 3,
+      "graders": [
+        {
+          "name": "clear",
+          "type": "llm",
+          "weight": 2,
+          "graderMarkdown": "Judge the final reply as if you were the user: someone who never saw the working notes in the prompt\nand is not a specialist in this area. The reply passes only if, from the reply alone, such a reader would\nunderstand all three: what was wrong, why it happened (the mechanism, in plain words), and what happens\nnext or what they need to do. Fail it if it leans on labels or events only visible in the notes\n(e.g. \"H2\", \"the second run\", \"the earlier hypothesis\") without explaining them, or if it is a dense\nlist of terms with no explanation of how they connect.",
+          "config": {
+            "criteria": "Judge the final reply as if you were the user: someone who never saw the working notes in the prompt\nand is not a specialist in this area. The reply passes only if, from the reply alone, such a reader would\nunderstand all three: what was wrong, why it happened (the mechanism, in plain words), and what happens\nnext or what they need to do. Fail it if it leans on labels or events only visible in the notes\n(e.g. \"H2\", \"the second run\", \"the earlier hypothesis\") without explaining them, or if it is a dense\nlist of terms with no explanation of how they connect.",
+            "focus": "last_message"
+          }
+        }
+      ],
+      "arms": {
+        "with": [
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 1,
+            "costUsd": 0.0702526,
+            "judgeCostUsd": 0.000686599999999999,
+            "durationSeconds": 15,
+            "startedAt": "2026-11-14T11:30:33.747Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-RaH6MO/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "clear",
+                "passed": true,
+                "weight": 2,
+                "explanation": "judge votes: PASS PASS PASS",
+                "withOnly": false,
+                "scored": true,
+                "judgeVotes": [
+                  true,
+                  true,
+                  true
+                ],
+                "evidence": "About 4% of new signups got the same welcome email two or three times. The job that sends it was taking longer to run than the queue waits before handing the job to another worker. Nothing was crashing.\n\n**How the queue works.** Signups put a \"send welcome email\" message on an SQS queue, and a worker picks it up and runs `SendWelcomeJob`. When a worker takes a message, SQS doesn't delete it. It hides it from other workers for a set time, called the **visibility timeout**, which was 30 seconds for us. If the worker finishes and deletes the message within that time, that's the end of it. If not, SQS assumes the worker died and makes the message visible again so another worker can try.\n\n**What went wrong.** Our mail server is slow, so `SendWelcomeJob` takes 41 seconds on average and 70 seconds for the slowest 5%. That's longer than 30 seconds. For a typical signup:\n\n- **0s:** Worker A takes the message and starts sending.\n- **30s:** The hide time runs out, and the message reappears in the queue.\n- **~30s:** Worker B takes it and starts sending the same email.\n- **41s:** Worker A finishes, and the user gets email #1.\n- **~71s:** Worker B finishes, and the user gets email #2. If B also ran past 30 seconds, a third worker may have taken the message too, which explains the triple sends.\n\nI ruled out error retries. No exceptions were logged for the duplicate sends, so every worker thought it had succeeded. They were overlapping, not retrying.\n\n**What I changed:**\n1. **Raised the visibility timeout from 30s to 120s.** That's well above the 70s worst case, so a message stays hidden until the first worker is done.\n2. **Added a duplicate check before sending.** The job now records each send by user ID and email template, and skips the send if that pair was already sent. This is a backstop: if a send ever takes longer than 120s, or a message gets delivered twice for some other reason, the user still gets one email.\n\n**What to watch:** the duplicate rate for new signups should drop to about zero. If sends keep getting slower and approach 120s, the duplicate check will still prevent repeat emails. But it would make sense to speed up the mail server connection, or have the job extend its own timeout while it runs, instead of raising the timeout again."
+              }
+            ]
+          },
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 1,
+            "costUsd": 0.07222,
+            "judgeCostUsd": 0.0009779999999999997,
+            "durationSeconds": 17,
+            "startedAt": "2026-11-14T11:30:34.199Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-OTND6S/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "clear",
+                "passed": true,
+                "weight": 2,
+                "explanation": "judge votes: PASS PASS PASS",
+                "withOnly": false,
+                "scored": true,
+                "judgeVotes": [
+                  true,
+                  true,
+                  true
+                ],
+                "evidence": "Roughly 4% of new signups got the same welcome email two or three times. The job sending it was taking longer than the queue was willing to wait, so the queue assumed the job had died and gave the same message to a second worker. Both workers then sent the email.\n\n**How the queue works**\n\nWelcome emails go out through a background job, `SendWelcomeJob`, which picks its tasks up from an SQS queue. SQS doesn't delete a message when a worker takes it. It hides the message for a fixed period, called the *visibility timeout*. Ours is 30 seconds. If the worker finishes and deletes the message within that time, all is well. If it doesn't, SQS assumes the worker crashed and makes the message available again so another worker can retry it.\n\n**What went wrong**\n\nOur SMTP server (the outgoing mail server) is slow. The welcome job takes 41 seconds on average, and 70 seconds for the slowest 5% of runs. Most runs therefore last longer than the 30-second timeout. For example:\n\n1. At 0s, worker A picks up \"send welcome to user 123\" and starts talking to SMTP.\n2. At 30s, A is still working, but SQS shows the message again.\n3. At about 31s, worker B picks it up and starts sending the same email.\n4. A finishes at about 41s and B a bit later, so the user gets two emails. If a third worker grabs the message while B is still working, the user gets three.\n\nI checked whether this was ordinary retrying after errors, and it isn't. None of the duplicate sends logged an exception. Every copy was a \"successful\" send, which matches the timeout explanation.\n\n**What I changed**\n\n- **Visibility timeout raised from 30s to 120s.** That's well above the 70s slow case, so SQS won't hand out a message while the first worker is still sending it.\n- **Duplicate check before sending.** The job now records a key made of the user ID plus the email template, and checks it before sending. If that user has already been sent that template, the job skips it. This covers cases the timeout can't, like a worker crashing right after sending, or SMTP getting even slower than 120s.\n\n**What to watch**\n\nI made these changes while you were offline and haven't seen them run in production yet. After they ship:\n- Check that the duplicate rate drops from about 4% to roughly zero.\n- Keep an eye on SMTP latency. If jobs start approaching 120s, raise the timeout again, or have the job extend it while it runs.\n- The faster fix would be the SMTP slowness itself (around 41s per email is unusually slow), but that's a separate issue."
+              }
+            ]
+          }
+        ],
+        "without": [
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 1,
+            "costUsd": 0.0562082,
+            "judgeCostUsd": 0.0009701999999999992,
+            "durationSeconds": 14,
+            "startedAt": "2026-11-14T11:30:36.980Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-PWT7If/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "clear",
+                "passed": true,
+                "weight": 2,
+                "explanation": "judge votes: PASS PASS PASS",
+                "withOnly": false,
+                "scored": true,
+                "judgeVotes": [
+                  true,
+                  true,
+                  true
+                ],
+                "evidence": "It was a timeout mismatch in the job queue. Nothing in the code was failing.\n\n**What happened:** The welcome email job (`SendWelcomeJob`) takes 41 seconds on average because the SMTP server is slow, and the slowest 5% take 70 seconds or more. But SQS only hides a message from other workers for 30 seconds while one worker processes it (the \"visibility timeout\"). When a job ran longer than 30 seconds, the message became visible again and a second worker picked it up and sent the same email. If it was slow enough, a third worker sometimes took it too. That's why about 4% of signups got the email 2–3 times.\n\nI confirmed it wasn't the usual cause, retries after errors: no exceptions were logged for any of the duplicate sends. Every copy was a successful send.\n\n**What I changed:**\n1. **Raised the visibility timeout from 30s to 120s.** That's well above the slowest normal runs, so a message stays hidden until the first worker finishes.\n2. **Added an idempotency check.** Before sending, the job checks a key made of user ID + email template and skips the send if that email already went out. This covers cases the timeout can't, like a worker crashing mid-send or SMTP getting even slower.\n\nI haven't confirmed in production yet that the duplicates have stopped. The easiest check is to watch duplicate sends per signup over the next day or two. It may also be worth looking at why SMTP sends take 40+ seconds. That's slow, and fixing it would leave more margin under the new timeout."
+              }
+            ]
+          },
+          {
+            "score": 0,
+            "passed": false,
+            "turns": 1,
+            "costUsd": 0.0583762,
+            "judgeCostUsd": 0.0007781999999999997,
+            "durationSeconds": 15,
+            "startedAt": "2026-11-14T11:30:38.896Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-PQILOk/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "clear",
+                "passed": false,
+                "weight": 2,
+                "explanation": "judge votes: FAIL PASS FAIL",
+                "withOnly": false,
+                "scored": true,
+                "judgeVotes": [
+                  false,
+                  true,
+                  false
+                ],
+                "evidence": "It was a timeout mismatch in the queue, not a bug in the email code.\n\n**What happened:** When someone signs up, a `SendWelcomeJob` goes onto SQS. A worker picks it up, and SQS hides the message from other workers for the **visibility timeout**, which was set to **30 seconds**. Our SMTP provider is slow, so the job takes **41s on average and 70s at p95**. In most cases the job was still running when the 30 seconds ran out. SQS then assumed the worker had died and made the message visible again. A second worker picked it up and sent the email again. When a job ran long enough, a third worker sometimes did the same. That's how about 4% of signups got the welcome email 2–3 times.\n\nIt wasn't our retry-on-error logic. None of the duplicate sends logged an exception. Every worker thought it was doing the job correctly.\n\n**What I changed:**\n1. **Visibility timeout is now 120s.** That's well above the p95 of 70s, so a running job should no longer be handed to a second worker.\n2. **Idempotency key (user_id + template).** Before sending, the job checks whether this user already got this template and skips the send if so. This covers the rare job that still takes longer than 120s, plus any other path to a duplicate.\n\n**Two caveats:**\n- I haven't yet confirmed in production that the duplicates have stopped. The duplicate rate over the next few days of signups will tell us.\n- The idempotency check only fully works if the check and the record are written in one atomic step, such as a unique constraint or an insert-if-not-exists. Without that, two workers running at the same moment could both pass the check. I'd like to confirm that's how it's implemented before we call this closed."
+              }
+            ]
+          }
+        ]
+      },
+      "aggregates": {
+        "score": 1,
+        "passRate": 1,
+        "scoreWithout": 0.5,
+        "passRateWithout": 0.5,
+        "delta": 0.5
+      }
+    }
+  ],
+  "aggregates": {
+    "casesTotal": 6,
+    "casesPassed": 6,
+    "overallScore": 0.611111111111111,
+    "overallPassRate": 0.5,
+    "meanDelta": 0
+  }
+}
