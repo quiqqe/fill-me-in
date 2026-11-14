@@ -1,8 +1,8 @@
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.svg">
-    <img src="assets/logo.svg" width="220" alt="Fill Me In: someone peeking in, having missed everything">
-  </picture>
+
+![Fill Me In: someone peeking in, having missed everything](assets/logo.svg#gh-light-mode-only)
+![Fill Me In: someone peeking in, having missed everything](assets/logo-dark.svg#gh-dark-mode-only)
+
 </p>
 
 <h1 align="center">Fill Me In</h1>
@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <strong>Situation first &middot; what, why, what to do &middot; depth that follows the conversation &middot; outranks "be brief" plugins</strong>
+  <strong>Gist first &middot; what, why, what to do &middot; depth that follows the conversation &middot; outranks "be brief" plugins</strong>
 </p>
 
 <p align="center">
@@ -58,11 +58,11 @@ Six scenarios where the agent reports on work you didn't see, each run 4 times w
 
 | | with | without |
 |---|--:|--:|
-| mean score | **0.85** | 0.74 |
-| runs passing every grader | **19/24** | 15/24 |
-| words per reply | 380 | 251 |
+| mean score | **0.86** | 0.74 |
+| runs passing every grader | **20/24** | 15/24 |
+| words per reply | 358 | 241 |
 
-The gain sits where the default answer is terse (a flaky test, an "I don't get it" follow-up); on three cases the model already explains well and both arms score 1.00. Replies get ~50% longer. One honest miss: when the user is the expert, both arms still pile on caveats. Small suite, single-turn — method, per-case table and limitations in [evals/results](evals/results/README.md). Reproduce with `claude plugin eval . --judge-model sonnet`.
+The gain sits where the default answer is terse (a flaky test, an "I don't get it" follow-up); on three cases the model already explains well and both arms score 1.00. Replies get ~50% longer. One honest miss: when the user is the expert, the plugin now keeps replies shorter than the baseline, but the judge still flags extra caveats in 3 of 4 runs. Small suite, single-turn — method, per-case table and limitations in [evals/results](evals/results/README.md). Reproduce with `claude plugin eval . --judge-model sonnet`.
 
 ## How it works
 
@@ -71,18 +71,19 @@ Two parts, one plugin.
 **An always-on rule.** A `SessionStart` hook (also after `/clear` and context compaction) loads it, and a one-line reminder rides along with every prompt so other instructions don't drown it out:
 
 ```
-1. Situation first      → what was going on, what the agent found
-2. Then the conclusion  → what, why, what it means for you
-3. No private context   → "that bug", "the second hypothesis" get explained or cut
-4. Concrete over vague  → "request X returns Y because Z"
-5. Depth follows you    → per topic, from what you say, not what feels obvious to the agent
+1. Gist first           → one plain sentence: what happened
+2. Then the situation   → what was going on, what the agent found
+3. Every conclusion     → what, why, what it means for you
+4. No private context   → "that bug", "the second hypothesis" get explained or cut
+5. Concrete over vague  → "request X returns Y because Z"
+6. Depth follows you    → per topic, from what you say, not what feels obvious to the agent
 ```
 
 Depth is the part agents usually get wrong, so it is read from the dialogue instead of guessed:
 
 | You… | The agent… |
 |---|---|
-| use the topic's terms, correct it on substance | skips the basics |
+| use the topic's terms, correct it on substance | skips the basics, doesn't repeat back what you said |
 | ask what a term means, say "I don't get it" | explains the mechanism and stays at that level for the topic |
 | give no signal | explains — an extra sentence is cheaper than an answer you can't follow |
 
@@ -91,6 +92,10 @@ Depth is the part agents usually get wrong, so it is read from the dialogue inst
 ## Plays well with "be brief"
 
 Running [ponytail](https://github.com/DietrichGebert/ponytail), [caveman](https://github.com/JuliusBrussee/caveman) or your own "max three lines" rule? Keep them. Fill Me In tells the agent to let them cut code, repetition and pleasantries — never context, reasons or the mechanism. You installed it to understand answers, so on explanations it wins. A direct request in your message ("code only") still wins over both.
+
+## What it runs
+
+Two `command` hooks, both `cat` of a text file inside the plugin: `hooks/rule.md` at session start and `hooks/reminder.md` on every prompt. Their output goes into the agent's context. No network calls, no scripts, no dependencies, nothing collected or stored. The `/fill-me-in` skill is a plain `SKILL.md`.
 
 ## Install
 

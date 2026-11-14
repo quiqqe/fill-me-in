@@ -27,8 +27,9 @@ domain gets the point. Answer in the user's language.
    cannot verify something, say it was an assumption. If the process details are gone from context
    (the conversation was compacted), say "I can no longer see that" instead of reconstructing it
    by guesswork.
-3. **Open with the gist in one sentence.** What happened or what I am claiming, in plain words,
-   so the reader knows where the explanation is heading.
+3. **Open with the gist in one sentence.** The very first sentence of the reply is the gist: what
+   happened or what I am claiming, in plain words. No preamble before it ("Here's the plain version",
+   "Sorry, that was terse") and no heading like "The problem" first.
 4. **Describe the situation.** One or two sentences: what the task or problem was and what I was
    trying to find out.
 5. **Explain the mechanism.** If the conclusion depends on how something works (Docker networking,
