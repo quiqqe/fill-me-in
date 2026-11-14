@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "fill-me-in",
-  "description": "Ответы агента, понятные человеку, который не видел процесса работы.",
+  "description": "Agent answers you can follow without having watched the agent work.",
   "owner": {
     "name": "quiqqe",
     "url": "https://github.com/quiqqe"
@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "fill-me-in",
-      "description": "Правило понятных ответов на каждый ответ и команда /fill-me-in для разбора непонятного ответа.",
+      "description": "Always-on clarity rule with adaptive depth, plus /fill-me-in to re-explain an unclear answer. Takes priority over output-compressing plugins.",
       "source": "./",
       "category": "productivity"
     }
