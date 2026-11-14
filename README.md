@@ -14,7 +14,7 @@
 <p align="center">
   <img src="https://img.shields.io/github/stars/quiqqe/fill-me-in?style=flat-square&color=111111&label=stars" alt="Stars">
   <img src="https://img.shields.io/badge/claude%20code-plugin-111111?style=flat-square" alt="Claude Code plugin">
-  <img src="https://img.shields.io/github/v/release/quiqqe/fill-me-in?style=flat-square&color=111111&label=release" alt="Release">
+  <img src="https://img.shields.io/github/v/release/quiqqe/fill-me-in?display_name=release&style=flat-square&color=111111&label=release" alt="Release">
   <img src="https://img.shields.io/badge/license-MIT-111111?style=flat-square" alt="MIT license">
 </p>
 
