@@ -1,6 +1,6 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "fill-me-in",
+  "name": "quiqqe",
   "description": "Agent answers you can follow without having watched the agent work.",
   "owner": {
     "name": "quiqqe",

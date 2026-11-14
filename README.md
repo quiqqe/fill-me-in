@@ -98,7 +98,7 @@ Running [ponytail](https://github.com/DietrichGebert/ponytail), [caveman](https:
 
 ```
 /plugin marketplace add quiqqe/fill-me-in
-/plugin install fill-me-in@fill-me-in
+/plugin install fill-me-in@quiqqe
 ```
 
 Starts working from the next session.
@@ -114,7 +114,7 @@ npx skills add quiqqe/fill-me-in
 ### Uninstall
 
 ```
-/plugin uninstall fill-me-in@fill-me-in
+/plugin uninstall fill-me-in@quiqqe
 ```
 
 <details>

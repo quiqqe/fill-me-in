@@ -98,7 +98,7 @@ Fill Me In заставляет агента писать для того, кт�
 
 ```
 /plugin marketplace add quiqqe/fill-me-in
-/plugin install fill-me-in@fill-me-in
+/plugin install fill-me-in@quiqqe
 ```
 
 Начинает работать со следующей сессии.
@@ -114,7 +114,7 @@ npx skills add quiqqe/fill-me-in
 ### Удаление
 
 ```
-/plugin uninstall fill-me-in@fill-me-in
+/plugin uninstall fill-me-in@quiqqe
 ```
 
 <details>
