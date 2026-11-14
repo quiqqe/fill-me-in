@@ -1,15 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
   <defs>
-    <filter id="ink" x="-5%" y="-5%" width="110%" height="110%">
+    <filter id="ink" filterUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024">
       <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="7" result="n"/>
       <feDisplacementMap in="SourceGraphic" in2="n" scale="9" xChannelSelector="R" yChannelSelector="G"/>
     </filter>
-    <clipPath id="behind"><rect x="0" y="0" width="600" height="1024"/></clipPath>
   </defs>
   
   <g filter="url(#ink)" stroke="#111" stroke-linecap="round" stroke-linejoin="round" fill="none">
     <!-- head behind the door edge -->
-    <g clip-path="url(#behind)">
+    <g>
       <ellipse cx="600" cy="430" rx="250" ry="270" fill="#fff" stroke-width="26"/>
       <!-- messy hair -->
       <path d="M372 330 Q360 190 500 150 Q560 135 610 150" stroke-width="24"/>
