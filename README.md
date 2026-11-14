@@ -54,15 +54,15 @@ Not longer for the sake of it. Longer by exactly the context you missed. Real si
 
 ## Numbers
 
-Six scenarios where the agent reports on work you didn't see, each run 4 times with and without the plugin, graded by a Sonnet judge on one question: *would someone who never saw the work understand what was wrong, why, and what happens next?*
+Six scenarios where the agent reports on work you didn't see, each run 12 times with and without the plugin, graded by a Sonnet judge on one question: *would someone who never saw the work understand what was wrong, why, and what happens next?*
 
 | | with | without |
 |---|--:|--:|
-| mean score | **0.86** | 0.74 |
-| runs passing every grader | **20/24** | 15/24 |
-| words per reply | 358 | 241 |
+| mean score | **0.90** | 0.80 |
+| runs passing every grader | **62/72** (86%) | 50/72 (69%) |
+| words per reply | 338 | 241 |
 
-The gain sits where the default answer is terse (a flaky test, an "I don't get it" follow-up); on three cases the model already explains well and both arms score 1.00. Replies get ~50% longer. One honest miss: when the user is the expert, the plugin now keeps replies shorter than the baseline, but the judge still flags extra caveats in 3 of 4 runs. Small suite, single-turn — method, per-case table and limitations in [evals/results](evals/results/README.md). Reproduce with `claude plugin eval . --judge-model sonnet`.
+The difference is statistically significant overall (Fisher's exact test, p = 0.03), and most of it comes from one situation: after "I don't get it", 8 of 12 replies with the plugin were clear versus 0 of 12 without (p = 0.001). On three cases the model already explains well and both arms pass 12/12; on a flaky test and with an expert user the plugin did better (11 vs 10, 7 vs 4), but those gaps are within noise. Replies get ~40% longer. Small suite, single-turn — method, per-case table and limitations in [evals/results](evals/results/README.md). Reproduce with `claude plugin eval . --judge-model sonnet`.
 
 ## How it works
 

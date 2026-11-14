@@ -3,7 +3,25 @@
 `claude plugin eval` runs every case twice — with Fill Me In and without it — and an LLM judge grades
 each final reply against the case's graders (`evals/<case>/graders/*.md`).
 
-## Run 3 (current, v0.1.1) — `latest.json`, `report.html`
+## Run 4 (current, v0.1.1) — `latest.json`, `report.html`
+
+Claude Code 2.1.325 · 6 cases × 12 runs × 2 arms · judge: Sonnet, 3 votes per grader · $11.68
+
+| case | passing with | passing without | Fisher p | words with / without |
+|---|--:|--:|--:|--:|
+| fill-me-in-unclear | 8/12 | 0/12 | **0.001** | 397 / 252 |
+| expert-no-overexplain | 7/12 | 4/12 | 0.41 | 268 / 288 |
+| flaky-timezone-test | 11/12 | 10/12 | 1.00 | 289 / 202 |
+| migration-lock | 12/12 | 12/12 | — | 347 / 228 |
+| nginx-recreate | 12/12 | 12/12 | — | 312 / 213 |
+| queue-duplicates | 12/12 | 12/12 | — | 415 / 262 |
+| **all** | **62/72** | **50/72** | **0.027** | **338 / 241** |
+
+Mean score 0.90 with vs 0.80 without. The overall difference clears p < 0.05, but almost all of it
+comes from the "I don't get it" case; the other gaps are within noise. Pooling runs across cases
+treats them as independent, which slightly overstates the certainty of the overall p.
+
+## Run 3 (v0.1.1, 4 runs) — `run3-n4-sonnet.json`, `run3-report.html`
 
 Claude Code 2.1.325 · 6 cases × 4 runs × 2 arms · judge: Sonnet, 3 votes per grader · $3.95
 
