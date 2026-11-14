@@ -14,12 +14,13 @@
 <p align="center">
   <img src="https://img.shields.io/github/stars/quiqqe/fill-me-in?style=flat-square&color=111111&label=stars" alt="Stars">
   <img src="https://img.shields.io/badge/claude%20code-plugin-111111?style=flat-square" alt="Claude Code plugin">
+  <img src="https://img.shields.io/badge/eval-62%2F72%20vs%2050%2F72-111111?style=flat-square" alt="Eval: 62/72 clear with the plugin vs 50/72 without">
   <img src="https://img.shields.io/github/v/release/quiqqe/fill-me-in?display_name=release&style=flat-square&color=111111&label=release" alt="Release">
   <img src="https://img.shields.io/badge/license-MIT-111111?style=flat-square" alt="MIT license">
 </p>
 
 <p align="center">
-  <strong>Gist first &middot; what, why, what to do &middot; depth that follows the conversation &middot; outranks "be brief" plugins</strong>
+  <strong>Gist first &middot; what, why, what to do &middot; depth that follows the conversation &middot; <code>/fill-me-in</code> when an answer doesn't land</strong>
 </p>
 
 <p align="center">
@@ -28,41 +29,52 @@
 
 ---
 
-You know the feeling. You hand the agent a task, look away for ten minutes, come back, and read:
+You know the feeling. The agent reports back on something it just did:
 
-> Dropped `set $backend`, moved to an upstream with `zone` and `resolve`, `valid=1s`. Recreating app no longer needs a reload.
+> Fixed: dropped `set $php_fpm`, moved to upstream with zone + resolve, valid=1s. Recreating php no longer needs a reload.
 
-Every word is familiar. None of it means anything. The agent was in the room the whole time — it read the files, dropped two hypotheses, named things along the way — and it writes as if you were there too.
+Every word is familiar. None of it means anything. The agent was in the room the whole time — it read the files, dropped two hypotheses, named things along the way — and it writes as if you were there too. So you ask "I don't get it", and get the same thing again, a bit longer.
 
 Fill Me In makes the agent write for the person who just walked in.
 
 ## Before / after
 
-Same fix, with Fill Me In:
+You reply "I don't get it. What does that mean?" to the message above. Real replies from the eval run, same model, same prompt (opening lines; full text in [examples/](examples/fill-me-in-unclear.md)):
 
-> **Gist:** nginx now notices on its own that the app container was recreated, so it no longer needs a restart.
->
-> **How it works.** nginx reaches the app container by the name `app`, and Docker's DNS turns that name into an IP. Recreate the container and the IP can change; an nginx that remembered the old one sends requests into the void. The new `upstream` block with `resolve` makes nginx re-ask DNS every second (`valid=1s`).
->
-> ```
-> request → nginx → upstream backend → DNS: "app = ?" (every 1 s) → app container
-> ```
->
-> **Example.** A deploy recreates app, its IP goes from .5 to .7, and within a second nginx sends traffic to .7. Before, you would restart nginx by hand.
+**Without Fill Me In** — the point is buried under an apology and a problem statement:
 
-Not longer for the sake of it. Longer by exactly the context you missed. Real side-by-side replies from the eval run: [examples/](examples/).
+> Sorry, that was too terse. Here it is in plain terms.
+>
+> **The problem:** nginx forwards PHP requests to your `php` container by its name, `php`. When the container is recreated (after a rebuild or a `docker compose up` that replaces it), Docker often gives it a new IP address. Out of the box, nginx looks up the name once at startup and keeps using that IP…
+
+**With Fill Me In** — the gist first, then the mechanism with concrete addresses:
+
+> **In short:** nginx used to lose track of your PHP container whenever that container was recreated. I changed the config so nginx re-checks the container's address on its own, so you no longer have to reload nginx after recreating PHP.
+>
+> **What was going wrong.** nginx passes PHP requests to the PHP container by name, something like `php:9000`. Docker turns that name into an IP address, for example `172.18.0.5`. By default nginx does that lookup once, at startup, and keeps using that IP. When you recreate the PHP container, it usually comes back with a new IP, say `172.18.0.7`…
+
+In this situation the judge rated **0 of 12** replies clear without the plugin and **8 of 12** with it.
 
 ## Numbers
 
-Six scenarios where the agent reports on work you didn't see, each run 12 times with and without the plugin, graded by a Sonnet judge on one question: *would someone who never saw the work understand what was wrong, why, and what happens next?*
+Six scenarios where the agent reports on work you didn't see, each run 12 times with and without the plugin. A Sonnet judge grades every reply on one question: *would someone who never saw the work understand what was wrong, why, and what happens next?*
 
-| | with | without |
-|---|--:|--:|
-| mean score | **0.90** | 0.80 |
-| runs passing every grader | **62/72** (86%) | 50/72 (69%) |
-| words per reply | 338 | 241 |
+| situation | clear with | clear without | chance it's luck |
+|---|--:|--:|--:|
+| "I don't get it" after a terse answer | **8/12** | 0/12 | **0.1%** |
+| the user is the expert (don't over-explain) | 7/12 | 4/12 | 41% |
+| flaky test: "was it a real bug?" | 11/12 | 10/12 | — |
+| migration, nginx, queue reports | 36/36 | 36/36 | — |
+| **all** | **62/72** (86%) | 50/72 (69%) | **2.7%** |
 
-The difference is statistically significant overall (Fisher's exact test, p = 0.03), and most of it comes from one situation: after "I don't get it", 8 of 12 replies with the plugin were clear versus 0 of 12 without (p = 0.001). On three cases the model already explains well and both arms pass 12/12; on a flaky test and with an expert user the plugin did better (11 vs 10, 7 vs 4), but those gaps are within noise. Replies get ~40% longer. Small suite, single-turn — method, per-case table and limitations in [evals/results](evals/results/README.md). Reproduce with `claude plugin eval . --judge-model sonnet`.
+What this does and doesn't show:
+
+- **Proven:** when an answer didn't land and you ask again, the plugin turns a re-worded repeat into an actual explanation.
+- **Not proven:** that first reports get clearer. On these scenarios the model already explains well without it, and the remaining gaps are within noise.
+- **Not tested:** the priority over "be brief" plugins below, and real multi-hour sessions — the eval is single-turn and simulates lost context with the agent's own notes.
+- **Cost:** replies are ~40% longer (338 vs 241 words).
+
+Method, per-case results and limitations: [evals/results](evals/results/README.md). Reproduce: `claude plugin eval . --runs 12 --judge-model sonnet` (about $12).
 
 ## How it works
 
@@ -91,7 +103,7 @@ Depth is the part agents usually get wrong, so it is read from the dialogue inst
 
 ## Plays well with "be brief"
 
-Running [ponytail](https://github.com/DietrichGebert/ponytail), [caveman](https://github.com/JuliusBrussee/caveman) or your own "max three lines" rule? Keep them. Fill Me In tells the agent to let them cut code, repetition and pleasantries — never context, reasons or the mechanism. You installed it to understand answers, so on explanations it wins. A direct request in your message ("code only") still wins over both.
+Running [ponytail](https://github.com/DietrichGebert/ponytail), [caveman](https://github.com/JuliusBrussee/caveman) or your own "max three lines" rule? Keep them. Fill Me In tells the agent to let them cut code, repetition and pleasantries — never context, reasons or the mechanism — and repeats that with every prompt so it isn't drowned out. A direct request in your message ("code only") still wins over both. This priority is an instruction to the model, not a guarantee, and the eval has not measured it alongside those plugins yet.
 
 ## What it runs
 
@@ -106,7 +118,11 @@ Two `command` hooks, both `cat` of a text file inside the plugin: `hooks/rule.md
 /plugin install fill-me-in@quiqqe
 ```
 
-Starts working from the next session.
+Starts working from the next session. Update to the latest version from a terminal:
+
+```
+claude plugin update fill-me-in@quiqqe
+```
 
 ### Just the skill, any agent
 

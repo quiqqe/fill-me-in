@@ -1,7 +1,8 @@
 # "I don't get it" after a terse answer
 
-Taken verbatim from the eval run in [`evals/results/latest.json`](../evals/results/latest.json), case `fill-me-in-unclear`.
-Same model, same prompt; the only difference is whether Fill Me In is installed.
+Taken verbatim from eval run 4 ([`evals/results/latest.json`](../evals/results/latest.json)), case `fill-me-in-unclear`.
+Same model, same prompt; the only difference is whether Fill Me In is installed. The "without" reply is
+one that failed the judge, the "with" reply one that passed.
 
 ## Prompt
 
@@ -17,45 +18,36 @@ Write your reply to the user.
 
 ## Without Fill Me In
 
-> Sorry, that was too terse. Here's what was going on and what I changed.
+> Sorry, that was too much shorthand. Here's what it means in plain terms.
 >
-> **The problem:** Nginx sends PHP requests to your `php` container by name. Docker gives a container a new IP address every time it's recreated. Nginx looked up that IP once and kept using it. So after you recreated `php`, nginx kept sending traffic to the old, dead address, and you got errors (usually 502 Bad Gateway) until you reloaded or restarted nginx.
+> **The problem:** nginx sends PHP requests to your `php` container by name. Every time that container is recreated (a rebuild, restart or `docker compose up`), Docker gives it a new IP address. nginx looked up the IP once at startup and kept using it. So after a recreate, nginx kept sending requests to an address where nothing was listening. You'd get 502 errors until you reloaded nginx.
 >
-> **The old workaround:** The config put the address in a variable (`set $php_fpm ...`). That's a common trick to make nginx look the name up again. It works, but it's fiddly, and it gives up some features, like connection reuse.
+> **What I changed:** I changed the nginx config so it looks up the `php` container's address again every second, instead of looking it up once and keeping it.
 >
-> **What I changed:**
-> - **Removed the variable.** The PHP address is now defined in an `upstream` block, which is nginx's standard way to name a backend.
-> - **Added `zone` and `resolve`.** Together these tell nginx to keep checking what IP the name `php` points to while it runs, not just at startup.
-> - **Set `valid=1s`.** Nginx now re-checks the IP every second, so it notices a new container almost immediately.
+> - **"Dropped `set $php_fpm`"**: The old config used a variable to force nginx to look up the address again. It's a common workaround, but it's clunky and has side effects. I removed it.
+> - **"Moved to upstream with zone + resolve"**: I replaced it with nginx's built-in way of doing this. An `upstream` block names the PHP backend. Adding `resolve` tells nginx to keep looking up that name. `zone` is a small piece of shared memory that `resolve` needs in order to work.
+> - **"valid=1s"**: This tells nginx to trust a looked-up address for only one second before checking again.
 >
-> **What that means for you:** You can recreate or redeploy the `php` container and nginx will find the new one by itself. You no longer need to reload nginx afterward. For a second or so during the switch, a request might still fail.
->
-> One caveat: `resolve` in an `upstream` block needs nginx 1.27.3 or newer. On an older nginx image, the config will fail to load. If you're not sure which version you're running, I can check.
+> **What it means for you:** you can recreate the PHP container whenever you like, and nginx will pick up its new address within about a second. You no longer need to reload or restart nginx afterward.
 
 ## With Fill Me In
 
-> I made a change so nginx finds the PHP container by itself after that container is recreated, so you no longer have to reload nginx by hand.
+> **In short:** nginx used to lose track of your PHP container whenever that container was recreated. I changed the config so nginx re-checks the container's address on its own, so you no longer have to reload nginx after recreating PHP.
 >
-> One caveat first: I can't see your nginx config files from here (a search of the working directory found nothing). So this explanation comes from what I wrote earlier plus how nginx generally works, not from re-reading your files.
+> **What was going wrong**
 >
-> **The problem.** nginx passes PHP requests to the PHP-FPM container by its name, something like `php:9000`. nginx doesn't use the name directly. It asks Docker's built-in DNS (at `127.0.0.11`) for the container's IP address. When you recreate the `php` container (after a rebuild or `docker compose up`), it can come back with a different IP. If nginx is still holding the old IP, it sends requests to an address that no longer exists and you get 502 errors until you reload nginx.
+> nginx passes PHP requests to the PHP container (PHP-FPM) by name, something like `php:9000`. Docker turns that name into an IP address, for example `172.18.0.5`. By default nginx does that lookup once, at startup, and keeps using that IP.
 >
-> **What each part of my earlier message means:**
+> When you recreate the PHP container, it usually comes back with a new IP, say `172.18.0.7`. nginx keeps sending requests to the old `172.18.0.5`, where nothing is listening anymore. That's why you got 502 errors until you reloaded nginx, which made it look the name up again.
 >
-> - **"Dropped `set $php_fpm`"**: the old config stored the address in a variable, e.g. `set $php_fpm php:9000; fastcgi_pass $php_fpm;`. That's a common trick to make nginx look the name up again on each request. I removed it.
-> - **"Moved to upstream"**: an `upstream` block is nginx's standard way to name a backend. The PHP address is now defined there once, and `fastcgi_pass` points to that block.
-> - **`resolve`**: a parameter on the server line inside the upstream. It tells nginx to keep re-checking DNS for that name in the background, instead of looking it up once at startup and never again. Free nginx has supported this since version 1.27.3.
-> - **`zone`**: a small piece of shared memory where nginx keeps the latest address. `resolve` needs it.
-> - **`valid=1s`**: set on the `resolver` line. It means nginx trusts a DNS answer for one second before asking again.
+> **What I changed**
 >
-> ```
-> request → nginx → upstream "php" → asks Docker DNS "where is php?" (every 1s) → php container
-> ```
+> 1. **Removed the `set $php_fpm ...` workaround.** That trick stores the address in a variable, which makes nginx look the name up on every request. It does work, but it's awkward, and it skips nginx's normal connection handling for backends.
+> 2. **Defined PHP as an `upstream` block with `zone` and `resolve`.** An `upstream` is nginx's named list of backend servers. `resolve` tells nginx to keep re-checking what IP the name `php` points to while it runs. `zone` gives nginx a small piece of shared memory to store the updated address, and `resolve` needs it to work.
+> 3. **Set `valid=1s` on the resolver.** This tells nginx to trust a lookup for only one second before asking Docker again. After the PHP container is recreated, nginx finds the new IP within about a second.
 >
-> **Example.** You rebuild the PHP container, and its IP changes from `172.18.0.5` to `172.18.0.7`. Within about a second, nginx's next DNS check returns `.7` and requests go there. Before the change, you'd have had to run `nginx -s reload` (or restart the nginx container) to stop the 502s.
+> **What it means for you**
 >
-> **What you need to do:** nothing. Just recreate the PHP container as usual. If you ever see 502s right after a PHP restart, check your nginx version with `nginx -v`. On anything older than 1.27.3, `resolve` won't work.
+> You can run something like `docker compose up -d --force-recreate php` and nginx keeps working without `nginx -s reload`. You might see an error or two in the second or so while the container restarts, but it fixes itself without you doing anything.
 >
-> I can't tell you why I preferred the `upstream` block over the variable, since both make nginx look the name up again. I no longer have that part of our conversation. The usual reason is that an `upstream` block is cleaner and can later hold several PHP containers, sharing requests between them.
->
-> Does any part still need more explanation?
+> One caveat: `resolve` inside an `upstream` needs nginx 1.27.3 or newer (older versions only had it in the paid nginx Plus). If your nginx image is older, nginx will refuse to start with this config. If that happens, tell me and I'll change it back to the variable approach.
